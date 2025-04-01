@@ -1,0 +1,12 @@
+# Use Google style as a base
+BasedOnStyle: Google
+# Customizations
+IndentWidth: 2
+TabWidth: 4
+UseTab: Never # Use spaces instead of tabs
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: Never
+ColumnLimit: 80 # Or your preferred line length
+AccessModifierOffset: -4 # Indent public/private/protected
