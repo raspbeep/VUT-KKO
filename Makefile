@@ -1,5 +1,5 @@
 CXX = g++-11
-CXXFLAGS = -Wall -Wextra -g -O2 -std=c++23 -Iinclude
+CXXFLAGS = -Wall -Wextra -g -O0 -std=c++23 -Iinclude
 
 # Source files (only .cpp files)
 SRCS = src/argparser.cpp src/lz_codec.cpp

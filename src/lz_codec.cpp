@@ -5,35 +5,175 @@
 
 #include "argparser.hpp"
 
-std::vector<uint8_t> read_input_file(std::string filename, uint16_t width) {
+const uint16_t block_size = 16;
+
+enum SerializationStrategy { HORIZONTAL, VERTICAL, DIAGONAL, N_STRATEGIES };
+
+std::vector<uint8_t> read_input_file(const std::string& filename,
+                                     uint16_t width) {
   std::ifstream file(filename, std::ios::binary);
   if (!file) {
-    throw std::runtime_error("Error: Unable to open input file.");
+    throw std::runtime_error("Error: Unable to open input file: " + filename);
   }
 
-  file.seekg(0, std::ios_base::end);
+  file.seekg(0, std::ios::end);
   auto length = file.tellg();
-  file.seekg(0, std::ios_base::beg);
-  if (length != width * width) {
-    // change this so the error displays the argument and the actual size
-    // of the file
-    throw std::runtime_error(
-        std::string("Error: Input file size does not match the specified "
-                    "width. Expected ") +
-        std::to_string(width * width) + " bytes, got " +
-        std::to_string(length) + " bytes.");
+  file.seekg(0, std::ios::beg);
+
+  uint64_t expected_size = static_cast<uint64_t>(width) * width;
+  if (length < 0 || static_cast<uint64_t>(length) != expected_size) {
+    std::ostringstream error_msg;
+    error_msg << "Error: Input file '" << filename
+              << "' size mismatch. Expected " << expected_size << " bytes ("
+              << width << "x" << width << "), but got " << length << " bytes.";
+    throw std::runtime_error(error_msg.str());
   }
-  return std::vector<uint8_t>((std::istreambuf_iterator<char>(file)),
-                              std::istreambuf_iterator<char>());
+
+  std::vector<uint8_t> buffer;
+  buffer.reserve(expected_size);
+  buffer.assign((std::istreambuf_iterator<char>(file)),
+                std::istreambuf_iterator<char>());
+
+  if (buffer.size() != expected_size) {
+    std::ostringstream error_msg;
+    error_msg << "Error: Read incomplete data from file '" << filename
+              << "'. Expected " << expected_size << " bytes, read "
+              << buffer.size() << " bytes.";
+    throw std::runtime_error(error_msg.str());
+  }
+
+  return buffer;
 }
 
-class Compressor {
-  private:
+class Block {
+  public:
+  Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height)
+      : m_width(width), m_height(height) {
+    for (size_t i = 0; i < SerializationStrategy::N_STRATEGIES; i++)
+      m_data[i].reserve(width * height);
+    m_data[0].assign(data.begin(), data.end());
+  }
+
+  void serialize_all_strategies() {
+    serialize(HORIZONTAL);
+    serialize(VERTICAL);
+    serialize(DIAGONAL);
+  }
+
+  void serialize(enum SerializationStrategy strategy) {
+    switch (strategy) {
+      case HORIZONTAL:
+        // default, does not need to be serialized
+        return;
+      case VERTICAL:
+      case DIAGONAL:
+      default:
+        break;
+    }
+  }
+
+  // TODO: change to private
+  public:
+  std::array<std::vector<uint8_t>, SerializationStrategy::N_STRATEGIES> m_data;
+  uint16_t m_width;
+  uint16_t m_height;
 };
 
-int main(int argc, char *argv[]) {
+class Image {
+  public:
+  Image(const std::vector<uint8_t>& data, uint16_t width, bool adaptive)
+      : m_data(data), m_width(width), m_adaptive(adaptive) {
+    if (data.size() != static_cast<size_t>(width) * width) {
+      throw std::runtime_error(
+          "Error: Data size does not match image dimensions.");
+    }
+  }
+
+  void create_blocks() {
+    if (!m_adaptive) {
+      create_single_block();
+    } else {
+      create_multiple_blocks();
+    }
+  }
+
+  void print_blocks() {
+    for (size_t i = 0; i < m_blocks.size(); i++) {
+      Block& block = m_blocks[i];
+      std::cout << "Block #" << i << " of width: " << block.m_width
+                << " and height: " << block.m_height << std::endl;
+    }
+  }
+
+  private:
+  void create_single_block() {
+    // single block
+    m_blocks.reserve(1);
+    m_blocks.push_back(Block(m_data, m_width, m_width));
+  }
+
+  void create_multiple_blocks() {
+    m_blocks.clear();  // Clear previous blocks if any
+    uint16_t n_blocks_dim = (m_width + block_size - 1) / block_size;
+    m_blocks.reserve(static_cast<size_t>(n_blocks_dim) * n_blocks_dim);
+
+    // Iterate through block indices (row and column)
+    for (uint16_t block_r = 0; block_r < n_blocks_dim; ++block_r) {
+      uint16_t start_row = block_r * block_size;
+      // Calculate the actual height of the current block (handles boundary)
+      uint16_t current_block_height =
+          std::min<uint16_t>(block_size, m_width - start_row);
+
+      for (uint16_t block_c = 0; block_c < n_blocks_dim; ++block_c) {
+        uint16_t start_col = block_c * block_size;
+        uint16_t current_block_width =
+            std::min<uint16_t>(block_size, m_width - start_col);
+
+        std::vector<uint8_t> block_data;
+        // Reserve exact space needed for the current block's data
+        block_data.reserve(static_cast<size_t>(current_block_width) *
+                           current_block_height);
+
+        // Iterate through pixels within the current block
+        for (uint16_t r = start_row; r < start_row + current_block_height;
+             ++r) {
+          for (uint16_t c = start_col; c < start_col + current_block_width;
+               ++c) {
+            size_t index = static_cast<size_t>(r) * m_width + c;
+            block_data.push_back(m_data[index]);
+          }
+        }
+
+        if (block_data.size() !=
+            static_cast<size_t>(current_block_width) * current_block_height) {
+          std::cerr << "Error: Internal logic error. Block data size mismatch."
+                    << " Expected: "
+                    << (static_cast<size_t>(current_block_width) *
+                        current_block_height)
+                    << " Got: " << block_data.size() << std::endl;
+          throw std::runtime_error("Block data size mismatch.");
+        }
+        m_blocks.emplace_back(std::move(block_data), current_block_width,
+                              current_block_height);
+      }
+    }
+  }
+
+  private:
+  std::vector<uint8_t> m_data;
+  uint16_t m_width;
+  bool m_adaptive;
+  std::vector<Block> m_blocks;
+};
+
+int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
-  auto d = read_input_file(args.get_input_file(), args.get_image_width());
+  Image i =
+      Image(read_input_file(args.get_input_file(), args.get_image_width()),
+            args.get_image_width(), args.is_adaptive());
+
+  i.create_blocks();
+  i.print_blocks();
 
   return 0;
 }

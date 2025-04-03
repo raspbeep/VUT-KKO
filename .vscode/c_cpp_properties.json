@@ -11,10 +11,10 @@
             ],
             "defines": [],
             "macFrameworkPath": [],
-            "compilerPath": "/usr/bin/clang++",
+            "compilerPath": "/opt/homebrew/bin/g++-11",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "macos-clang-x64"
+            "intelliSenseMode": "gcc-arm64"
         }
     ],
     "version": 4
