@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "argparser.hpp"
+#include "bst.cpp"
 
 const uint16_t block_size = 16;
 
@@ -66,15 +67,43 @@ class Block {
         // default, does not need to be serialized
         return;
       case VERTICAL:
+        for (size_t i = 0; i < m_height; i++) {
+          for (size_t j = 0; j < m_width; j++) {
+            m_data[VERTICAL].push_back(m_data[HORIZONTAL][i * m_width + j]);
+          }
+        }
+        break;
       case DIAGONAL:
+        // TODO: implement diagonal serialization
+        return;
       default:
         break;
+    }
+  }
+
+  void delta_transform(bool adaptive) {
+    if (adaptive) {
+      // find minimum in each m_data vector
+      for (size_t i = 0; i < SerializationStrategy::N_STRATEGIES; i++) {
+        uint8_t min = *std::min_element(m_data[i].begin(), m_data[i].end());
+        m_delta_params[i] = min;
+        for (size_t j = 0; j < m_data[i].size(); j++) {
+          m_data[i][j] -= min;
+        }
+      }
+    } else {
+      uint8_t min = *std::min_element(m_data[0].begin(), m_data[0].end());
+      m_delta_params[0] = min;
+      for (size_t j = 0; j < m_data[0].size(); j++) {
+        m_data[0][j] -= min;
+      }
     }
   }
 
   // TODO: change to private
   public:
   std::array<std::vector<uint8_t>, SerializationStrategy::N_STRATEGIES> m_data;
+  std::array<uint8_t, SerializationStrategy::N_STRATEGIES> m_delta_params;
   uint16_t m_width;
   uint16_t m_height;
 };
@@ -163,17 +192,39 @@ class Image {
   std::vector<uint8_t> m_data;
   uint16_t m_width;
   bool m_adaptive;
+
+  public:
   std::vector<Block> m_blocks;
 };
 
 int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
+  std::vector<uint8_t> data;
+  data.reserve(512 * 512);
+  for (int i = 0; i < 512 * 512; i++) {
+    data.push_back(static_cast<uint8_t>(i % 256));
+  }
   Image i =
       Image(read_input_file(args.get_input_file(), args.get_image_width()),
             args.get_image_width(), args.is_adaptive());
 
+  // Image i = Image(data, args.get_image_width(), args.is_adaptive());
+
   i.create_blocks();
-  i.print_blocks();
+  // i.print_blocks();
+
+  // auto b = i.m_blocks[0];
+  // for (size_t i = 0; i < b.m_height; i++) {
+  //   for (size_t j = 0; j < b.m_width; j++)
+  //     std::cout << static_cast<int>(b.m_data[0][i * b.m_width + j]) << " ";
+  // }
+
+  auto tree = BSTree();
+
+  tree.insert_data(16, {1, 2, 3, 4, 5});
+  tree.insert_data(15, {6, 7, 8, 9, 10});
+  tree.insert_data(14, {11, 12, 13, 14, 15});
+  tree.print_recursive_preorder(tree.root);
 
   return 0;
 }
