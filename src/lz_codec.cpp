@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "argparser.hpp"
-#include "bst.cpp"
+#include "bst.hpp"
 
 const uint16_t block_size = 16;
 

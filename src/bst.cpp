@@ -1,29 +1,16 @@
-#include <stdint.h>
+#include "bst.hpp"
 
-#include <array>
-#include <iostream>
-#include <stdexcept>  // For potential exceptions if needed
+BSTNode::BSTNode(uint16_t idx, const std::array<uint8_t, L>& cont)
+    : index(idx), content(cont), left(nullptr), right(nullptr) {
+}
 
-#define L 5
-
-struct BSTNode {
-  uint16_t index;
-  std::array<uint8_t, L> content;
-  BSTNode* left;
-  BSTNode* right;
-
-  BSTNode(uint16_t idx, const std::array<uint8_t, L>& cont)
-      : index(idx), content(cont), left(nullptr), right(nullptr) {
+void BSTNode::print() {
+  std::cout << "Node " << index << " content: ";
+  for (auto& c : content) {
+    std::cout << static_cast<int>(c) << " ";
   }
-
-  void print() {
-    std::cout << "Node " << index << "content: ";
-    for (auto& c : content) {
-      std::cout << c;
-    }
-    std::cout << std::endl;
-  }
-};
+  std::cout << std::endl;
+}
 
 bool compare_content_less(const std::array<uint8_t, L>& content_one,
                           const std::array<uint8_t, L>& content_two) {
@@ -38,73 +25,60 @@ bool compare_content_less(const std::array<uint8_t, L>& content_one,
   return false;
 }
 
-class BSTree {
-  public:
-  BSTNode* root;
+BSTree::BSTree() : root(nullptr) {
+}
 
-  void destroy_recursive(BSTNode* node) {
-    if (node) {
-      destroy_recursive(node->left);
-      destroy_recursive(node->right);
-      delete node;
-    }
+BSTree::~BSTree() {
+  destroy_recursive(root);
+}
+
+void BSTree::destroy_recursive(BSTNode* node) {
+  if (node) {
+    destroy_recursive(node->left);
+    destroy_recursive(node->right);
+    delete node;
+  }
+}
+
+void BSTree::insert_data(uint16_t index,
+                         const std::array<uint8_t, L>& content) {
+  BSTNode* new_node = new BSTNode(index, content);
+
+  if (root == nullptr) {
+    root = new_node;
+    return;
   }
 
-  public:
-  void print_recursive_preorder(BSTNode* node) {
-    if (node) {
-      node->print();
-      print_recursive_preorder(node->left);
-      print_recursive_preorder(node->right);
-    }
-  }
-
-  BSTree() : root(nullptr) {
-    // return; // Not needed in void constructor
-  }
-
-  // Option 2: Insert by creating a node internally (Recommended)
-  void insert_data(uint16_t index, const std::array<uint8_t, L>& content) {
-    BSTNode* new_node = new BSTNode(index, content);  // Allocate node
-
-    if (root == nullptr) {
-      root = new_node;
-      return;
-    }
-
-    BSTNode* prev_node = nullptr;
-    BSTNode* current_node = root;
-    while (current_node != nullptr) {
-      prev_node = current_node;
-      if (compare_content_less(new_node->content, current_node->content)) {
-        current_node = current_node->left;
-      } else {
-        // Handle duplicates: if equal, go right.
-        // If you want to disallow duplicates or update, add logic here.
-        current_node = current_node->right;
-      }
-    }
-
-    // Attach the new node
-    if (compare_content_less(new_node->content, prev_node->content)) {
-      prev_node->left = new_node;
+  BSTNode* prev_node = nullptr;
+  BSTNode* current_node = root;
+  while (current_node != nullptr) {
+    prev_node = current_node;
+    if (compare_content_less(new_node->content, current_node->content)) {
+      current_node = current_node->left;
     } else {
-      prev_node->right = new_node;
+      current_node = current_node->right;
     }
   }
 
-  ~BSTree() {
-    destroy_recursive(root);
+  if (compare_content_less(new_node->content, prev_node->content)) {
+    prev_node->left = new_node;
+  } else {
+    prev_node->right = new_node;
   }
+}
 
-  // --- Other methods ---
-  void remove_node() {
-    // TODO: Implement removal
-    return;
+void BSTree::print_recursive_preorder(BSTNode* node) {
+  if (node) {
+    node->print();
+    print_recursive_preorder(node->left);
+    print_recursive_preorder(node->right);
   }
+}
 
-  void find_longes_prefix() {
-    // TODO: Implement prefix search
-    return;
-  }
-};
+void remove_node(uint16_t index) {
+  // Implement the remove node logic here
+}
+
+// void BSTree::find_longes_prefix() {
+//   // Implement the find longest prefix logic here
+// }
