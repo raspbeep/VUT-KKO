@@ -5,6 +5,7 @@
 
 #include "argparser.hpp"
 #include "bst.hpp"
+#include "token.hpp"
 
 const uint16_t block_size = 16;
 
@@ -100,9 +101,25 @@ class Block {
     }
   }
 
+  void delta_inverse(bool adaptive) {
+    // TODO: implement
+  }
+
+  void encode() {
+    const uint8_t strategy = SerializationStrategy::HORIZONTAL;
+
+    // iterate over all bytes of the input
+    for (uint64_t position = 0; position < m_data[strategy].size();
+         position++) {
+      if (position < 2) {
+      }
+    }
+  }
+
   // TODO: change to private
   public:
   std::array<std::vector<uint8_t>, SerializationStrategy::N_STRATEGIES> m_data;
+  std::array<std::vector<token_t>, SerializationStrategy::N_STRATEGIES> m_data;
   std::array<uint8_t, SerializationStrategy::N_STRATEGIES> m_delta_params;
   uint16_t m_width;
   uint16_t m_height;
@@ -218,13 +235,6 @@ int main(int argc, char* argv[]) {
   //   for (size_t j = 0; j < b.m_width; j++)
   //     std::cout << static_cast<int>(b.m_data[0][i * b.m_width + j]) << " ";
   // }
-
-  auto tree = BSTree();
-
-  tree.insert_data(16, {1, 2, 3, 4, 5});
-  tree.insert_data(15, {6, 7, 8, 9, 10});
-  tree.insert_data(14, {11, 12, 13, 14, 15});
-  tree.print_recursive_preorder(tree.root);
 
   return 0;
 }
