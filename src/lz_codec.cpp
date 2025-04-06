@@ -5,7 +5,10 @@
 
 #include "argparser.hpp"
 #include "bst.hpp"
+#include "hashtable.hpp"
 #include "token.hpp"
+
+#define SEARCH_BUF_SIZE 15
 
 const uint16_t block_size = 16;
 
@@ -101,25 +104,80 @@ class Block {
     }
   }
 
-  void delta_inverse(bool adaptive) {
-    // TODO: implement
+  void insert_token(SerializationStrategy strategy, token_t token) {
+    std::cout << "insert_token: " << std::endl;
+    std::cout << "  strategy: " << strategy << std::endl;
+    std::cout << "  token: ";
+    if (token.coded) {
+      std::cout << "coded: " << static_cast<int>(token.data.offset) << " "
+                << static_cast<int>(token.data.length) << std::endl;
+    } else {
+      std::cout << "uncoded: " << static_cast<int>(token.data.value) << "("
+                << static_cast<char>(token.data.value) << ")" << std::endl;
+    }
+    m_tokens[strategy].push_back(token);
   }
 
   void encode() {
-    const uint8_t strategy = SerializationStrategy::HORIZONTAL;
+    const SerializationStrategy strategy = SerializationStrategy::HORIZONTAL;
+    auto hash_table = HashTable(1 << 12);
+    // push the first two bytes unencoded since the dict is empty
+    uint64_t position = 0;
+    for (position = 0; position < 2; position++) {
+      // m_tokens[strategy].push_back(
+      //     {.coded = false, .data = {.value = m_data[strategy][position]}});
+      insert_token(strategy, {.coded = false,
+                              .data = {.value = m_data[strategy][position]}});
+    }
 
+    // hash_table.insert(m_data[strategy], 0);
+    uint64_t next_pos;
+    uint64_t removed_until = 0;
     // iterate over all bytes of the input
-    for (uint64_t position = 0; position < m_data[strategy].size();
-         position++) {
-      if (position < 2) {
+    for (position = 2, next_pos = 2; position < m_data[strategy].size();) {
+      // search for the longest prefix in the hash table
+      search_result result = hash_table.search(m_data[strategy], position);
+      next_pos = position + result.length;
+      if (result.found) {
+        next_pos += MIN_CODED_LEN;
+        // found a match, push the token
+        insert_token(strategy, {.coded = true,
+                                .data = {.offset = static_cast<uint16_t>(
+                                             position - result.position),
+                                         .length = result.length}});
+      } else {
+        // no match found, push the byte unencoded
+        insert_token(strategy, {.coded = false,
+                                .data = {.value = m_data[strategy][position]}});
+        next_pos++;
       }
+      uint16_t old_pos = position;
+      uint16_t moved_forward = next_pos - position;
+      while (position < next_pos) {
+        // insert the current byte into the hash table
+        hash_table.insert(m_data[strategy], position - MIN_CODED_LEN + 1);
+        position++;
+      }
+
+      // remove old entries from the hash table
+      if (position > SEARCH_BUF_SIZE) {
+        size_t remove_from = removed_until;
+        size_t remove_to = position - SEARCH_BUF_SIZE - MIN_CODED_LEN;
+        for (size_t r = remove_from; r <= remove_to; r++) {
+          hash_table.remove(m_data[strategy], r);
+        }
+        removed_until = remove_to + 1;
+      }
+
+      std::cout << "position: " << position << std::endl;
     }
   }
 
   // TODO: change to private
   public:
   std::array<std::vector<uint8_t>, SerializationStrategy::N_STRATEGIES> m_data;
-  std::array<std::vector<token_t>, SerializationStrategy::N_STRATEGIES> m_data;
+  std::array<std::vector<token_t>, SerializationStrategy::N_STRATEGIES>
+      m_tokens;
   std::array<uint8_t, SerializationStrategy::N_STRATEGIES> m_delta_params;
   uint16_t m_width;
   uint16_t m_height;
@@ -130,8 +188,8 @@ class Image {
   Image(const std::vector<uint8_t>& data, uint16_t width, bool adaptive)
       : m_data(data), m_width(width), m_adaptive(adaptive) {
     if (data.size() != static_cast<size_t>(width) * width) {
-      throw std::runtime_error(
-          "Error: Data size does not match image dimensions.");
+      // throw std::runtime_error(
+      //     "Error: Data size does not match image dimensions.");
     }
   }
 
@@ -217,13 +275,20 @@ class Image {
 int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
   std::vector<uint8_t> data;
-  data.reserve(512 * 512);
-  for (int i = 0; i < 512 * 512; i++) {
-    data.push_back(static_cast<uint8_t>(i % 256));
-  }
+  // data.reserve(512 * 512);
+  // for (int i = 0; i < 512 * 512; i++) {
+  //   data.push_back(static_cast<uint8_t>(i % 256));
+  // }
+
+  uint8_t sequence[] = {
+      97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
+      97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
+      97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};  //, 97, 102, 97, 102};
+
+  std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
   Image i =
-      Image(read_input_file(args.get_input_file(), args.get_image_width()),
-            args.get_image_width(), args.is_adaptive());
+      Image(/*read_input_file(args.get_input_file(), args.get_image_width())*/
+            sequence_vec, /*args.get_image_width()*/ 6, args.is_adaptive());
 
   // Image i = Image(data, args.get_image_width(), args.is_adaptive());
 
@@ -235,6 +300,7 @@ int main(int argc, char* argv[]) {
   //   for (size_t j = 0; j < b.m_width; j++)
   //     std::cout << static_cast<int>(b.m_data[0][i * b.m_width + j]) << " ";
   // }
-
+  i.m_blocks[0].serialize_all_strategies();
+  i.m_blocks[0].encode();
   return 0;
 }

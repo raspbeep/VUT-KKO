@@ -2,6 +2,10 @@
 #define HASHTABLE_HPP
 
 #include <cstdint>
+#include <vector>
+
+// minimum encode length
+#define MIN_CODED_LEN 3
 
 struct search_result {
   bool found;         // true if a match was found
@@ -14,7 +18,7 @@ class HashTable {
   HashTable(uint32_t size);
   ~HashTable();
 
-  void insert(uint32_t key, std::vector<uint8_t>& data, uint64_t position);
+  void insert(std::vector<uint8_t>& data, uint64_t position);
 
   void remove(std::vector<uint8_t>& data, uint64_t position);
 

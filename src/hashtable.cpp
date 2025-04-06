@@ -1,11 +1,9 @@
 #include "hashtable.hpp"
 
 #include <array>
+#include <iostream>
 #include <stdexcept>
-#include <vector>
 
-// minimum encode length
-#define MIN_CODED_LEN 3
 // shift value for rolling hash function
 #define d 5
 
@@ -60,7 +58,7 @@ search_result HashTable::search(std::vector<uint8_t>& data,
   HashNode* current = table[key];
   struct search_result result{
       false,  // found
-      -1,     // position
+      0,      // position
       0,      // length
   };
 
@@ -84,7 +82,11 @@ uint16_t HashTable::match_length(std::vector<uint8_t>& data,
                                  uint64_t current_pos, HashNode* current) {
   uint16_t match_length = 0;
   for (uint16_t i = 0; i < MAX_CODED_LEN; ++i) {
-    if (data[current_pos + i] == data[current->position + i]) {
+    auto cmp1_index = current_pos + i + MIN_CODED_LEN;
+    auto cmp2_index = current->position + i + MIN_CODED_LEN;
+    auto cmp1 = data[cmp1_index];
+    auto cmp2 = data[cmp2_index];
+    if (cmp1 == cmp2) {
       match_length++;
     } else {
       break;
@@ -93,15 +95,30 @@ uint16_t HashTable::match_length(std::vector<uint8_t>& data,
   // subtract the minimum coded length to get the actual length
   // of the prefix because the minimum coded length is guaranteed after hash
   // table lookup
-  return match_length - MIN_CODED_LEN;
+  return match_length;
 }
 
-void HashTable::insert(uint32_t key, std::vector<uint8_t>& data,
-                       uint64_t position) {
+void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
   HashNode* new_node = new HashNode;
   new_node->position = position;
   // hash of the MIN_CODED_LEN bytes of data at the given position
   uint32_t index = hash_function(&data[position]);
+
+#if 1
+  std::cout << "HashTable::insert: " << std::endl;
+  std::cout << "  position: " << position << std::endl;
+  std::cout << "  index: " << index << std::endl;
+  std::cout << "  data: ";
+  for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
+    std::cout << static_cast<int>(data[position + i]) << " ";
+  }
+  std::cout << "(";
+  for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
+    std::cout << static_cast<char>(data[position + i]);
+  }
+  std::cout << ")" << std::endl;
+  std::cout << std::endl;
+#endif
 
   HashNode* current = table[index];
   if (current == nullptr) {
@@ -122,6 +139,21 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
     prev = current;
     current = current->next;
   }
+#if 1
+  std::cout << "HashTable::remove: " << std::endl;
+  std::cout << "  position: " << position << std::endl;
+  std::cout << "  index: " << key << std::endl;
+  std::cout << "  data: ";
+  for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
+    std::cout << static_cast<int>(data[position + i]) << " ";
+  }
+  std::cout << "(";
+  for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
+    std::cout << static_cast<char>(data[position + i]);
+  }
+  std::cout << ")" << std::endl;
+  std::cout << std::endl;
+#endif
 
   if (current == nullptr) {
     // this should never happen

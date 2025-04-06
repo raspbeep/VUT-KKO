@@ -94,6 +94,8 @@
     "cinttypes": "cpp",
     "format": "cpp",
     "filesystem": "cpp",
-    "__nullptr": "cpp"
+    "__nullptr": "cpp",
+    "__functional_base": "cpp",
+    "__memory": "cpp"
   }
 }

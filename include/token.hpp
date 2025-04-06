@@ -3,10 +3,16 @@
 
 #include <cstdint>
 
-struct token_t {
-  bool coded;         // true if the token is coded
-  uint16_t length;    // length of the token
-  uint16_t position;  // position of the token in the input stream
-};
+typedef struct {
+  bool coded;
+  union {
+    uint8_t value;
+    struct {
+      uint16_t offset;
+      uint16_t length;
+    };
+  } data;
+
+} token_t;
 
 #endif  // TOKEN_HPP
