@@ -16,9 +16,11 @@
 
 #define SEARCH_BUF_SIZE 127
 
-const size_t TOKEN_CODED_LEN =
-    1 + (ceil(log2(SEARCH_BUF_SIZE)) + ceil(log2(MAX_CODED_LEN)));
-const size_t TOKEN_UNCODED_LEN = 1 + 8;
+const uint16_t OFFSET_BITS = ceil(log2(SEARCH_BUF_SIZE));  // 7
+const uint16_t LENGTH_BITS = ceil(log2(MAX_CODED_LEN));    // 5
+
+const size_t TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;  // 13
+const size_t TOKEN_UNCODED_LEN = 1 + 8;                        // 9
 
 struct StrategyResult {
   size_t n_coded_tokens;
@@ -254,10 +256,8 @@ class Block {
     }
   }
 
-  // returns the tokens interpreted as bytes
-  std::vector<uint8_t> append_to_file() {
-    std::vector<uint8_t> result;
-    return result;
+  std::vector<uint8_t>& get_data() {
+    return m_data[m_picked_strategy];
   }
 
   public:
@@ -287,6 +287,12 @@ class Image {
     if (m_data.size() != static_cast<size_t>(m_width) * m_width) {
       throw std::runtime_error(
           "Error: Data size does not match image dimensions.");
+    }
+  }
+
+  ~Image() {
+    if (o_file_handle.is_open()) {
+      o_file_handle.close();
     }
   }
 
@@ -325,14 +331,16 @@ class Image {
   }
 
   void begin_enc_output_file() {
-    std::ofstream file(m_output_filename, std::ios::binary);
-    if (!file) {
+    o_file_handle.open(m_output_filename, std::ios::binary | std::ios::trunc);
+    if (!o_file_handle) {
       throw std::runtime_error("Error: Unable to open output file: " +
                                m_output_filename);
     }
     // write header (2B for width and 2B for height)
-    file.write(reinterpret_cast<const char*>(&m_width), sizeof(m_width));
-    file.write(reinterpret_cast<const char*>(&m_width), sizeof(m_width));
+    o_file_handle.write(reinterpret_cast<const char*>(&m_width),
+                        sizeof(m_width));
+    o_file_handle.write(reinterpret_cast<const char*>(&m_width),
+                        sizeof(m_width));
   }
 
   void create_blocks() {
@@ -351,7 +359,20 @@ class Image {
     }
   }
 
+  void append_encoded_block_to_file(Block& block) {
+    // write the block to the output file
+    o_file_handle.write(reinterpret_cast<const char*>(&block.m_width),
+                        sizeof(block.m_width));
+    o_file_handle.write(reinterpret_cast<const char*>(&block.m_height),
+                        sizeof(block.m_height));
+    write_tokens_to_file(o_file_handle, block.m_tokens[block.m_picked_strategy],
+                         OFFSET_BITS, LENGTH_BITS);
+  }
+
   void encode_blocks() {
+    begin_enc_output_file();
+
+    // iterate over all blocks, serialize, encode and write them
     for (size_t i = 0; i < m_blocks.size(); i++) {
       Block& block = m_blocks[i];
       // block.delta_transform(m_adaptive);
@@ -369,6 +390,8 @@ class Image {
       block.decode_using_strategy(SerializationStrategy::DEFAULT);
       block.compare_encoded_decoded();
 #endif
+      // appends the best strategy encoded block to the output file
+      append_encoded_block_to_file(block);
     }
   }
 
@@ -433,6 +456,7 @@ class Image {
   private:
   std::string m_input_filename;
   std::string m_output_filename;
+  std::ofstream o_file_handle;
   uint16_t m_width;
   bool m_adaptive;
   std::vector<uint8_t> m_data;
@@ -458,8 +482,9 @@ void print_final_stats(Image& img) {
   std::cout << "Uncoded tokens: " << uncoded << "("
             << TOKEN_UNCODED_LEN * uncoded << "b)" << std::endl;
   std::cout << "Total size: "
-            << (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded)
-            << std::endl;
+            << (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) << "b"
+            << ((TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded)) / 8
+            << "B" << std::endl;
   std::cout << "Compression ratio: "
             << static_cast<double>((TOKEN_CODED_LEN * coded) +
                                    (TOKEN_UNCODED_LEN * uncoded)) /
