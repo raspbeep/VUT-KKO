@@ -1,194 +1,334 @@
 #include "token.hpp"
 
-// Helper function to write bits to the stream
-// Manages a buffer and writes full bytes when available
-void write_bits(std::ofstream& ofs, uint64_t& buffer, uint8_t& buffer_bits_used,
-                uint64_t value, int num_bits) {
-  if (!ofs) {
-    throw std::runtime_error("Output stream is not valid");
+// writer
+// Internal state for bit writing
+static uint8_t writer_buffer = 0;
+static int writer_bit_count = 0;
+
+// Resets the internal state of the bit writer
+void resetBitWriterState() {
+  writer_buffer = 0;
+  writer_bit_count = 0;
+}
+
+// Writes a single bit to the file stream using static buffer
+void writeBitToFile(std::ofstream& file, bool bit) {
+  if (!file.is_open() || !file.good()) {
+    throw std::runtime_error("File stream is not valid for writing.");
   }
-  if (num_bits <= 0) {
-    return;  // Nothing to write
-  }
-  if (num_bits > 64) {
-    // Or handle differently if values larger than 64 bits are needed
-    throw std::invalid_argument("Cannot write more than 64 bits at once");
-  }
 
-  // Mask value to ensure we only consider the lowest num_bits
-  // Use 1ULL for unsigned long long literal
-  if (num_bits < 64) {
-    value &= (1ULL << num_bits) - 1;
-  }
-  // else: value uses all 64 bits, no mask needed
+  writer_buffer = (writer_buffer << 1) | (bit ? 1 : 0);
+  writer_bit_count++;
 
-  while (num_bits > 0) {
-    // How many bits can we fit into the current buffer?
-    uint8_t space_in_buffer = 64 - buffer_bits_used;
-    uint8_t bits_to_add = std::min((uint8_t)num_bits, space_in_buffer);
-
-    // Extract the lowest 'bits_to_add' from the value
-    uint64_t chunk = value & ((1ULL << bits_to_add) - 1);
-
-    // Shift the chunk into the correct position in the buffer
-    buffer |= (chunk << buffer_bits_used);
-
-    // Update buffer state
-    buffer_bits_used += bits_to_add;
-    num_bits -= bits_to_add;
-    value >>= bits_to_add;  // Remove the bits we just added
-
-    // If buffer is full (64 bits), write 8 bytes to the file
-    if (buffer_bits_used == 64) {
-      // Write byte by byte (safer for endianness)
-      for (int i = 0; i < 8; ++i) {
-        char byte = static_cast<char>((buffer >> (i * 8)) & 0xFF);
-        ofs.write(&byte, 1);
-        if (!ofs) {
-          throw std::runtime_error("Failed to write byte to file");
-        }
-      }
-      buffer = 0;
-      buffer_bits_used = 0;
+  if (writer_bit_count == 8) {
+    file.write(reinterpret_cast<const char*>(&writer_buffer), 1);
+    if (!file.good()) {
+      throw std::runtime_error("Failed to write byte to file.");
     }
+    writer_buffer = 0;
+    writer_bit_count = 0;
   }
 }
 
-// Function to flush any remaining bits in the buffer at the end
-void flush_bits(std::ofstream& ofs, uint64_t& buffer,
-                uint8_t& buffer_bits_used) {
-  if (!ofs) {
-    throw std::runtime_error("Output stream is not valid before flush");
+// Writes multiple bits from a value
+void writeBitsToFile(std::ofstream& file, uint32_t value, int numBits) {
+  if (numBits < 0 || numBits > 32) {
+    throw std::out_of_range("Number of bits must be between 0 and 32.");
   }
-  if (buffer_bits_used > 0) {
-    // Calculate how many full bytes are needed for the remaining bits
-    uint8_t bytes_to_write = (buffer_bits_used + 7) / 8;  // Ceiling division
-
-    // Write the necessary bytes
-    for (uint8_t i = 0; i < bytes_to_write; ++i) {
-      char byte = static_cast<char>((buffer >> (i * 8)) & 0xFF);
-      ofs.write(&byte, 1);
-      if (!ofs) {
-        throw std::runtime_error("Failed to write final byte to file");
-      }
-    }
-    buffer = 0;
-    buffer_bits_used = 0;
+  for (int i = numBits - 1; i >= 0; i--) {
+    writeBitToFile(file, (value >> i) & 1);
   }
 }
 
-// Function to write the vector of tokens to a binary file
-bool write_tokens_to_file(std::ofstream& ofs, std::vector<token_t>& tokens,
-                          uint8_t N_OFFSET_BITS, uint8_t M_LENGTH_BITS) {
-  if (N_OFFSET_BITS > 16 || M_LENGTH_BITS > 16) {
-    std::cerr << "Error: N and M cannot exceed 16 bits (size of uint16_t)."
-              << std::endl;
+// Flushes any remaining bits in the static buffer
+void flushBitsToFile(std::ofstream& file) {
+  if (!file.is_open() || !file.good()) {
+    // Allow flushing even if file closed, just clear buffer state
+    resetBitWriterState();
+    return;
+  }
+
+  if (writer_bit_count > 0) {
+    writer_buffer <<= (8 - writer_bit_count);  // Pad with zeros
+    file.write(reinterpret_cast<const char*>(&writer_buffer), 1);
+    if (!file.good()) {
+      // Don't throw here, as flushing might happen during cleanup
+      std::cerr << "Warning: Failed to write final byte during flush."
+                << std::endl;
+    }
+  }
+  // Reset state after flushing
+  resetBitWriterState();
+}
+
+// --- Main Writing Logic ---
+
+// Function to write tokens to binary file with bit packing
+bool writeTokensToFileFunctional(const std::string& filename, uint16_t width,
+                                 uint16_t height, uint16_t offset_length,
+                                 uint16_t length_bits,
+                                 const std::vector<token_t>& tokens) {
+  std::ofstream file(filename, std::ios::binary);
+
+  if (!file) {
+    std::cerr << "Error opening file for writing: " << filename << std::endl;
     return false;
   }
-  if (N_OFFSET_BITS == 0 || M_LENGTH_BITS == 0) {
-    std::cerr
-        << "Warning: N or M is zero, corresponding data will not be written."
-        << std::endl;
-    // Allow proceeding, but warn the user.
-  }
 
-  // std::ofstream ofs(filename, std::ios::binary | std::ios::trunc);
-  //   if (!ofs) {
-  //     std::cerr << "Error: Cannot open file for writing: " << filename
-  //               << std::endl;
-  //     return false;
-  //   }
-
-  uint64_t bit_buffer = 0;
-  uint8_t bits_in_buffer = 0;
+  // Reset static writer state before starting
+  resetBitWriterState();
 
   try {
-    for (const auto& token : tokens) {
-      // 1. Write the 'coded' bit (1 bit)
-      write_bits(ofs, bit_buffer, bits_in_buffer, token.coded ? 1 : 0, 1);
+    // Write header (not bit-packed)
+    file.write(reinterpret_cast<const char*>(&width), sizeof(width));
+    file.write(reinterpret_cast<const char*>(&height), sizeof(height));
+    file.write(reinterpret_cast<const char*>(&offset_length),
+               sizeof(offset_length));
+    file.write(reinterpret_cast<const char*>(&length_bits),
+               sizeof(length_bits));
 
+    if (!file.good())
+      throw std::runtime_error("Failed to write header.");
+
+    // Write tokens with bit packing using functional helpers
+    for (const auto& token : tokens) {
+      // Write coded flag (1 bit)
+      writeBitToFile(file, token.coded);
+
+      // Write token data
       if (token.coded) {
-        // 2a. Write 'offset' (N bits)
-        write_bits(ofs, bit_buffer, bits_in_buffer, token.data.offset,
-                   N_OFFSET_BITS);
-        // 2b. Write 'length' (M bits)
-        write_bits(ofs, bit_buffer, bits_in_buffer, token.data.length,
-                   M_LENGTH_BITS);
+        // Coded token: write offset and length with specified bit lengths
+        if (offset_length > 16 || length_bits > 16) {
+          throw std::out_of_range(
+              "Offset/Length bit size too large for uint16_t.");
+        }
+        writeBitsToFile(file, token.data.offset, offset_length);
+        writeBitsToFile(file, token.data.length, length_bits);
       } else {
-        // 2c. Write 'value' (8 bits)
-        write_bits(ofs, bit_buffer, bits_in_buffer, token.data.value, 8);
+        // Uncoded token: write ASCII value (8 bits)
+        writeBitsToFile(file, token.data.value, 8);
       }
     }
 
-    // 3. Flush any remaining bits from the buffer
-    flush_bits(ofs, bit_buffer, bits_in_buffer);
+    // Flush any remaining bits
+    flushBitsToFile(file);  // Also resets state
 
   } catch (const std::exception& e) {
     std::cerr << "Error during file writing: " << e.what() << std::endl;
-    ofs.close();  // Attempt to close even on error
+    // Ensure state is reset even on error before closing
+    resetBitWriterState();
+    file.close();
     return false;
   }
 
-  return !ofs.fail();  // Return true if close was successful and no errors
-                       // occurred
+  file.close();
+  std::cout << "File written successfully: " << filename << std::endl;
+  return true;
 }
 
-// // --- Example Usage ---
-// int test_writing() {
-//   std::vector<token_t> my_tokens;
+// reader
+// Internal state for bit reading
+static uint8_t reader_buffer = 0;
+static int reader_bit_position = 8;  // Start as if buffer is empty
+static bool reader_eof = false;
 
-//   // Example: Literal token (coded = false)
-//   token_t t1;
-//   t1.coded = false;
-//   t1.data.value = 'A';  // 0x41
-//   my_tokens.push_back(t1);
+// Resets the internal state of the bit reader
+void resetBitReaderState() {
+  reader_buffer = 0;
+  reader_bit_position = 8;
+  reader_eof = false;
+}
 
-//   // Example: Back-reference token (coded = true)
-//   token_t t2;
-//   t2.coded = true;
-//   t2.data.offset = 1500;  // Example offset
-//   t2.data.length = 25;    // Example length
-//   my_tokens.push_back(t2);
+// Reads a single bit from the file stream using static buffer
+// Returns true if bit read successfully, false if EOF encountered
+bool readBitFromFile(std::ifstream& file, bool& bitValue) {
+  if (reader_eof) {
+    return false;  // Already hit EOF, cannot read more
+  }
 
-//   token_t t3;
-//   t3.coded = false;
-//   t3.data.value = 'B';  // 0x42
-//   my_tokens.push_back(t3);
+  if (reader_bit_position == 8) {
+    // Read the next byte if buffer is exhausted
+    if (!file.read(reinterpret_cast<char*>(&reader_buffer), 1)) {
+      // Check if EOF was reached *during* this read attempt
+      reader_eof = file.eof();
+      // If it wasn't EOF, it's some other read error (could throw here if
+      // needed) For now, just signal failure if read failed for any reason
+      return false;
+    }
+    reader_bit_position = 0;
+  }
 
-//   // Define N and M (e.g., 12 bits for offset, 4 bits for length)
-//   const uint8_t N = 12;
-//   const uint8_t M = 4;
+  // Extract the bit
+  bitValue = (reader_buffer >> (7 - reader_bit_position)) & 1;
+  reader_bit_position++;
 
-//   // Check if example data fits N and M
-//   if (t2.data.offset >= (1 << N) || t2.data.length >= (1 << M)) {
-//     std::cerr << "Warning: Example data exceeds chosen N/M bit limits."
-//               << std::endl;
-//     // The write_bits function will truncate, but it's good practice to
-//     check.
-//   }
+  return true;  // Bit read successfully
+}
 
-//   std::string output_filename = "tokens.bin";
-//   if (write_tokens_to_file(output_filename, my_tokens, N, M)) {
-//     std::cout << "Successfully wrote tokens to " << output_filename
-//               << std::endl;
+// Reads multiple bits into a value
+// Returns true if all bits read successfully, false if EOF encountered mid-read
+bool readBitsFromFile(std::ifstream& file, int numBits, uint32_t& value) {
+  if (numBits < 0 || numBits > 32) {
+    // Or return false, depending on desired error handling
+    throw std::out_of_range("Number of bits must be between 0 and 32.");
+  }
+  if (reader_eof)
+    return false;  // Cannot read if already at EOF
 
-//     // You would need a corresponding read function to verify
-//     // The size will depend on N and M
-//     // Token 1: 1b (coded=0) + 8b (value) = 9 bits
-//     // Token 2: 1b (coded=1) + Nb (offset) + Mb (length) = 1 + 12 + 4 = 17
-//     bits
-//     // Token 3: 1b (coded=0) + 8b (value) = 9 bits
-//     // Total = 9 + 17 + 9 = 35 bits
-//     // Expected file size = ceil(35 / 8) = 5 bytes
-//     std::ifstream ifs(output_filename, std::ios::binary | std::ios::ate);
-//     if (ifs) {
-//       std::cout << "Output file size: " << ifs.tellg() << " bytes."
-//                 << std::endl;
-//     }
+  value = 0;
+  for (int i = 0; i < numBits; i++) {
+    bool current_bit;
+    if (!readBitFromFile(file, current_bit)) {
+      // readBitFromFile returned false, meaning EOF was hit
+      // reader_eof flag is already set internally by readBitFromFile
+      return false;  // Signal that not all bits could be read
+    }
+    value = (value << 1) | (current_bit ? 1 : 0);
+  }
+  return true;  // All requested bits were read successfully
+}
 
-//   } else {
-//     std::cerr << "Failed to write tokens to file." << std::endl;
-//   }
+// --- Main Reading Logic ---
 
-//   return 0;
-// }
+// Function to read tokens from binary file with bit unpacking
+bool readTokensFromFileFunctional(
+    const std::string& filename, uint16_t& width, uint16_t& height,
+    uint16_t& offset_length, uint16_t& length_bits,
+    std::vector<token_t>& tokens) {  // Pass tokens by ref
+  tokens.clear();                    // Clear output vector
+  std::ifstream file(filename, std::ios::binary);
+
+  if (!file) {
+    std::cerr << "Error opening file for reading: " << filename << std::endl;
+    resetBitReaderState();  // Reset state even if file open fails
+    return false;
+  }
+
+  // Reset static reader state before starting
+  resetBitReaderState();
+
+  try {
+    // Read header (not bit-packed)
+    file.read(reinterpret_cast<char*>(&width), sizeof(width));
+    if (!file.good())
+      throw std::runtime_error("Failed or incomplete read for width.");
+    file.read(reinterpret_cast<char*>(&height), sizeof(height));
+    if (!file.good())
+      throw std::runtime_error("Failed or incomplete read for height.");
+    file.read(reinterpret_cast<char*>(&offset_length), sizeof(offset_length));
+    if (!file.good())
+      throw std::runtime_error("Failed or incomplete read for offset_length.");
+    file.read(reinterpret_cast<char*>(&length_bits), sizeof(length_bits));
+    if (!file.good())
+      throw std::runtime_error("Failed or incomplete read for length_bits.");
+
+    // Basic validation after header read
+    if (offset_length > 16 || length_bits > 16) {
+      throw std::runtime_error(
+          "Header indicates offset/length bit size too large for uint16_t.");
+    }
+    if (offset_length == 0 || length_bits == 0) {
+      // Allow 0 maybe? Depends on spec. Let's assume > 0 needed for coded
+      // tokens. Consider adding a check later if needed.
+    }
+
+    // Read tokens with bit unpacking using functional helpers
+    while (true) {
+      token_t token;
+      bool flag_bit;
+
+      // Read coded flag (1 bit)
+      if (!readBitFromFile(file, flag_bit)) {
+        // EOF hit exactly when trying to read the next token's flag. This is a
+        // clean exit.
+        break;
+      }
+      token.coded = flag_bit;
+
+      // Read token data
+      if (token.coded) {
+        uint32_t temp_offset, temp_length;
+        // Coded token: read offset and length
+        if (!readBitsFromFile(file, offset_length, temp_offset)) {
+          // EOF hit while reading offset bits. Incomplete token.
+          std::cerr << "Warning: EOF encountered while reading offset for "
+                       "coded token."
+                    << std::endl;
+          break;
+        }
+        token.data.offset = static_cast<uint16_t>(temp_offset);
+
+        if (!readBitsFromFile(file, length_bits, temp_length)) {
+          // EOF hit while reading length bits. Incomplete token.
+          std::cerr << "Warning: EOF encountered while reading length for "
+                       "coded token."
+                    << std::endl;
+          break;
+        }
+        token.data.length = static_cast<uint16_t>(temp_length);
+
+      } else {
+        uint32_t temp_value;
+        // Uncoded token: read ASCII value (8 bits)
+        if (!readBitsFromFile(file, 8, temp_value)) {
+          // EOF hit while reading value bits. Incomplete token.
+          std::cerr << "Warning: EOF encountered while reading value for "
+                       "uncoded token."
+                    << std::endl;
+          break;
+        }
+        token.data.value = static_cast<uint8_t>(temp_value);
+      }
+
+      // If we successfully read all parts of the token, add it
+      tokens.push_back(token);
+    }
+
+  } catch (const std::exception& e) {
+    std::cerr << "Error during file reading: " << e.what() << std::endl;
+    resetBitReaderState();  // Reset state on error
+    file.close();
+    return false;
+  }
+
+  // Reset state after successful read or normal EOF break
+  resetBitReaderState();
+  file.close();
+  // Check if file close failed? Optional.
+
+  // Check if EOF was reached (expected) or if some other error occurred
+  if (!reader_eof && !file.eof()) {
+    std::cerr
+        << "Warning: Reading finished, but EOF flag not set. Potential issue."
+        << std::endl;
+  }
+
+  return true;
+}
+
+#include <iomanip>
+
+// Function to print tokens (same as before)
+void printTokens(const std::vector<token_t>& tokens) {
+  std::cout << "Total tokens: " << tokens.size() << std::endl;
+  std::cout << "------------------------------" << std::endl;
+
+  for (size_t i = 0; i < tokens.size(); i++) {
+    const auto& token = tokens[i];
+
+    std::cout << "Token " << std::setw(3) << i << ": ";
+    if (token.coded) {
+      std::cout << "CODED   - Offset: " << std::setw(4) << token.data.offset
+                << ", Length: " << std::setw(2) << token.data.length
+                << std::endl;
+    } else {
+      char c = static_cast<char>(token.data.value);
+      std::cout << "UNCODED - ASCII: " << std::setw(3)
+                << static_cast<int>(token.data.value);
+      if (token.data.value >= 32 && token.data.value <= 126) {
+        std::cout << " ('" << c << "')";
+      }
+      std::cout << std::endl;
+    }
+  }
+}

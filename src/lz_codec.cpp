@@ -247,9 +247,7 @@ class Block {
         identical = false;
       }
     }
-    if (identical) {
-      std::cout << "Decoded data matches original data." << std::endl;
-    } else {
+    if (!identical) {
       std::cout << "Decoded data does not match original data." << std::endl;
       throw std::runtime_error(
           "Error: Decoded data does not match original data.");
@@ -359,19 +357,8 @@ class Image {
     }
   }
 
-  void append_encoded_block_to_file(Block& block) {
-    // write the block to the output file
-    o_file_handle.write(reinterpret_cast<const char*>(&block.m_width),
-                        sizeof(block.m_width));
-    o_file_handle.write(reinterpret_cast<const char*>(&block.m_height),
-                        sizeof(block.m_height));
-    write_tokens_to_file(o_file_handle, block.m_tokens[block.m_picked_strategy],
-                         OFFSET_BITS, LENGTH_BITS);
-  }
-
   void encode_blocks() {
-    begin_enc_output_file();
-
+    std::vector<token_t> tokens;
     // iterate over all blocks, serialize, encode and write them
     for (size_t i = 0; i < m_blocks.size(); i++) {
       Block& block = m_blocks[i];
@@ -390,9 +377,14 @@ class Image {
       block.decode_using_strategy(SerializationStrategy::DEFAULT);
       block.compare_encoded_decoded();
 #endif
-      // appends the best strategy encoded block to the output file
-      append_encoded_block_to_file(block);
+      // append block tokens to the tokens vector
+      tokens.insert(tokens.end(),
+                    block.m_tokens[block.m_picked_strategy].begin(),
+                    block.m_tokens[block.m_picked_strategy].end());
     }
+
+    writeTokensToFileFunctional(m_output_filename, m_width, m_width,
+                                OFFSET_BITS, LENGTH_BITS, tokens);
   }
 
   uint16_t get_width() const {
@@ -476,20 +468,17 @@ void print_final_stats(Image& img) {
     }
   }
 
+  size_t total_size =
+      (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) + (8 * 8);
+
   size_t size_original = img.get_width() * img.get_width() * 8;
   std::cout << "Original data size: " << size_original << "b" << std::endl;
   std::cout << "Coded tokens: " << coded << "(" << TOKEN_CODED_LEN * coded
             << "b)" << std::endl;
   std::cout << "Uncoded tokens: " << uncoded << "("
             << TOKEN_UNCODED_LEN * uncoded << "b)" << std::endl;
-  std::cout << "Total size (including block headers): "
-            << (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) +
-                   (n_blocks * 32)
-            << "b\t"
-            << ((TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) +
-                (n_blocks * 32)) /
-                   8
-            << "B" << std::endl;
+  std::cout << "Total size (including block headers): " << total_size << "b\t"
+            << total_size / 8 << "B" << std::endl;
   std::cout << "Compression ratio: "
             << static_cast<double>((TOKEN_CODED_LEN * coded) +
                                    (TOKEN_UNCODED_LEN * uncoded)) /
