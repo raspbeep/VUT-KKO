@@ -10,8 +10,9 @@
 #include "hashtable.hpp"
 #include "token.hpp"
 
-#define DEBUG_PRINT 0
-#define DEBUG_CHECK_OUTPUT 0
+#define DEBUG_DUMMY_SEQ 0
+#define DEBUG_PRINT 1
+#define DEBUG_COMP_ENC_UNENC 1
 
 #define SEARCH_BUF_SIZE 127
 
@@ -28,23 +29,13 @@ const uint16_t block_size = 16;
 
 enum SerializationStrategy { HORIZONTAL, VERTICAL, N_STRATEGIES, DEFAULT };
 
-void begin_enc_output_file(const std::string& filename, uint16_t width,
-                           uint16_t height) {
-  std::ofstream file(filename, std::ios::binary);
-  if (!file) {
-    throw std::runtime_error("Error: Unable to open output file: " + filename);
-  }
-  // write header (2B for width and 2B for height)
-  file.write(reinterpret_cast<const char*>(&width), sizeof(width));
-  file.write(reinterpret_cast<const char*>(&height), sizeof(height));
-}
-
 class Block {
   public:
   Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height)
       : m_width(width), m_height(height), m_picked_strategy(HORIZONTAL) {
-    for (size_t i = 0; i < SerializationStrategy::N_STRATEGIES; i++)
+    for (size_t i = 0; i < SerializationStrategy::N_STRATEGIES; i++) {
       m_data[i].reserve(width * height);
+    }
     m_data[0].assign(data.begin(), data.end());
     m_strategy_results.fill({0, 0});
   }
@@ -113,6 +104,9 @@ class Block {
   }
 
   void decode_using_strategy(SerializationStrategy strategy) {
+    if (strategy == SerializationStrategy::DEFAULT) {
+      strategy = m_picked_strategy;
+    }
     auto tokens = m_tokens[strategy];
     uint64_t position = 0;
     for (size_t i = 0; i < tokens.size(); i++) {
@@ -237,6 +231,29 @@ class Block {
     }
   }
 
+  // debug compare function, can be called after encoding and decoding took
+  // place to check if the original data matches the decoded
+  void compare_encoded_decoded() {
+    bool identical = true;
+    for (size_t i = 0; i < m_data[m_picked_strategy].size(); i++) {
+      if (m_decoded_data[i] != m_data[m_picked_strategy][i]) {
+        std::cout
+            << "Error: Decoded data does not match original data at index " << i
+            << ": " << static_cast<int>(m_decoded_data[i])
+            << " != " << static_cast<int>(m_data[m_picked_strategy][i])
+            << std::endl;
+        identical = false;
+      }
+    }
+    if (identical) {
+      std::cout << "Decoded data matches original data." << std::endl;
+    } else {
+      std::cout << "Decoded data does not match original data." << std::endl;
+      throw std::runtime_error(
+          "Error: Decoded data does not match original data.");
+    }
+  }
+
   // returns the tokens interpreted as bytes
   std::vector<uint8_t> append_to_file() {
     std::vector<uint8_t> result;
@@ -259,8 +276,12 @@ class Block {
 
 class Image {
   public:
-  Image(std::string i_filename, uint16_t width, bool adaptive)
-      : m_input_filename(i_filename), m_width(width), m_adaptive(adaptive) {
+  Image(std::string i_filename, std::string o_filename, uint16_t width,
+        bool adaptive)
+      : m_input_filename(i_filename),
+        m_output_filename(o_filename),
+        m_width(width),
+        m_adaptive(adaptive) {
     // read the input file and store it in m_data vector
     read_enc_input_file();
     if (m_data.size() != static_cast<size_t>(m_width) * m_width) {
@@ -303,6 +324,17 @@ class Image {
     }
   }
 
+  void begin_enc_output_file() {
+    std::ofstream file(m_output_filename, std::ios::binary);
+    if (!file) {
+      throw std::runtime_error("Error: Unable to open output file: " +
+                               m_output_filename);
+    }
+    // write header (2B for width and 2B for height)
+    file.write(reinterpret_cast<const char*>(&m_width), sizeof(m_width));
+    file.write(reinterpret_cast<const char*>(&m_width), sizeof(m_width));
+  }
+
   void create_blocks() {
     if (!m_adaptive) {
       create_single_block();
@@ -317,6 +349,31 @@ class Image {
       std::cout << "Block #" << i << " of width: " << block.m_width
                 << " and height: " << block.m_height << std::endl;
     }
+  }
+
+  void encode_blocks() {
+    for (size_t i = 0; i < m_blocks.size(); i++) {
+      Block& block = m_blocks[i];
+      // block.delta_transform(m_adaptive);
+      if (m_adaptive) {
+        block.serialize_all_strategies();
+        block.encode_adaptive();
+      } else {
+        block.encode_using_strategy(SerializationStrategy::DEFAULT);
+      }
+#if DEBUG_PRINT
+      std::cout << "Block #" << i
+                << " picked strategy: " << block.m_picked_strategy << std::endl;
+#endif
+#if DEBUG_COMP_ENC_UNENC
+      block.decode_using_strategy(SerializationStrategy::DEFAULT);
+      block.compare_encoded_decoded();
+#endif
+    }
+  }
+
+  uint16_t get_width() const {
+    return m_width;
   }
 
   private:
@@ -373,20 +430,9 @@ class Image {
     }
   }
 
-  void encode_blocks() {
-    for (size_t i = 0; i < m_blocks.size(); i++) {
-      Block& block = m_blocks[i];
-      // block.delta_transform(m_adaptive);
-      if (m_adaptive) {
-        block.encode_adaptive();
-      } else {
-        block.encode_using_strategy(SerializationStrategy::DEFAULT);
-      }
-    }
-  }
-
   private:
   std::string m_input_filename;
+  std::string m_output_filename;
   uint16_t m_width;
   bool m_adaptive;
   std::vector<uint8_t> m_data;
@@ -395,63 +441,17 @@ class Image {
   std::vector<Block> m_blocks;
 };
 
-int main(int argc, char* argv[]) {
-  ArgumentParser args(argc, argv);
-  std::vector<uint8_t> data;
-
-#if 0
-  uint8_t sequence[] = {97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
-    97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
-    97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};
-
-  std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
-  Image i = Image(sequence_vec, 6, args.is_adaptive());
-#else
-  Image i =
-      Image(args.get_input_file(), args.get_image_width(), args.is_adaptive());
-#endif
-
-  auto strategy = SerializationStrategy::VERTICAL;
-  i.create_blocks();
-  auto block = i.m_blocks[0];
-  block.serialize_all_strategies();
-  block.encode_adaptive();
-
-  strategy = block.m_picked_strategy;
-
-  block.decode_using_strategy(strategy);
-  auto original_data = block.m_data[strategy];
-  auto decoded_data = block.m_data[strategy];
-  auto data_size = original_data.size();
-#if 0
-  std::cout << "Original data: \t";
-  for (size_t i = 0; i < data_size; i++) {
-    std::cout << static_cast<char>(original_data[i]);
-  }
-  std::cout << std::endl;
-#endif
-  bool identical = true;
-  for (size_t i = 0; i < data_size; i++) {
-    if (block.m_decoded_data[i] != original_data[i]) {
-      std::cout << "Error: Decoded data does not match original data at index "
-                << i << ": " << static_cast<int>(block.m_decoded_data[i])
-                << " != " << static_cast<int>(original_data[i]) << std::endl;
-      identical = false;
-    }
-  }
-  if (identical) {
-    std::cout << "Decoded data matches original data." << std::endl;
-  } else {
-    std::cout << "Decoded data does not match original data." << std::endl;
-  }
-
+void print_final_stats(Image& img) {
   size_t coded = 0;
   size_t uncoded = 0;
-  for (auto& token : block.m_tokens[strategy]) {
-    token.coded ? coded++ : uncoded++;
+  for (auto& block : img.m_blocks) {
+    auto strategy = block.m_picked_strategy;
+    for (auto& token : block.m_tokens[strategy]) {
+      token.coded ? coded++ : uncoded++;
+    }
   }
 
-  size_t size_original = (block.m_width * block.m_height) * 8;
+  size_t size_original = img.get_width() * img.get_width() * 8;
   std::cout << "Original data size: " << size_original << "b" << std::endl;
   std::cout << "Coded tokens: " << coded << "(" << TOKEN_CODED_LEN * coded
             << "b)" << std::endl;
@@ -465,5 +465,28 @@ int main(int argc, char* argv[]) {
                                    (TOKEN_UNCODED_LEN * uncoded)) /
                    size_original
             << std::endl;
+}
+
+int main(int argc, char* argv[]) {
+  ArgumentParser args(argc, argv);
+  std::vector<uint8_t> data;
+
+#if DEBUG_DUMMY_SEQ
+  uint8_t sequence[] = {97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
+                        97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
+                        97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};
+
+  std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
+  Image i = Image(sequence_vec, 6, args.is_adaptive());
+#else
+  Image i = Image(args.get_input_file(), args.get_output_file(),
+                  args.get_image_width(), args.is_adaptive());
+#endif
+
+  i.create_blocks();
+  i.encode_blocks();
+
+  print_final_stats(i);
+
   return 0;
 }
