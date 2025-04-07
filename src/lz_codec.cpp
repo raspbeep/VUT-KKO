@@ -11,10 +11,10 @@
 #include "token.hpp"
 
 #define DEBUG_DUMMY_SEQ 0
-#define DEBUG_PRINT 1
-#define DEBUG_COMP_ENC_UNENC 1
+#define DEBUG_PRINT 0
+#define DEBUG_COMP_ENC_UNENC 0
 
-#define SEARCH_BUF_SIZE 127
+#define SEARCH_BUF_SIZE 63
 
 const uint16_t OFFSET_BITS = ceil(log2(SEARCH_BUF_SIZE));  // 7
 const uint16_t LENGTH_BITS = ceil(log2(MAX_CODED_LEN));    // 5
@@ -488,9 +488,10 @@ void print_final_stats(Image& img) {
 
 int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
-  std::vector<uint8_t> data;
-
+  std::cout << "max length: " << MAX_CODED_LEN << std::endl;
+  std::cout << "offset bits: " << OFFSET_BITS << std::endl;
 #if DEBUG_DUMMY_SEQ
+  std::vector<uint8_t> data;
   uint8_t sequence[] = {97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
                         97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
                         97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};

@@ -7,7 +7,7 @@
 // minimum encode length
 #define MIN_CODED_LEN 3
 
-#define N_BITS_CODED 4
+#define N_BITS_CODED 10
 // shift 1 to the left N_BITS_CODED times
 // -1 to get the maximum value for N_BITS_CODED bits
 // and add the minimum coded length to optimize for value mapping
