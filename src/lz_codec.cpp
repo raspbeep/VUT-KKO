@@ -10,75 +10,49 @@
 #include "hashtable.hpp"
 #include "token.hpp"
 
-#define SEARCH_BUF_SIZE 15
+#define DEBUG_PRINT 0
+#define DEBUG_CHECK_OUTPUT 0
+
+#define SEARCH_BUF_SIZE 127
+
+const size_t TOKEN_CODED_LEN =
+    1 + (ceil(log2(SEARCH_BUF_SIZE)) + ceil(log2(MAX_CODED_LEN)));
+const size_t TOKEN_UNCODED_LEN = 1 + 8;
+
+struct StrategyResult {
+  size_t n_coded_tokens;
+  size_t n_unencoded_tokens;
+};
 
 const uint16_t block_size = 16;
 
-enum SerializationStrategy { HORIZONTAL, VERTICAL, DIAGONAL, N_STRATEGIES };
+enum SerializationStrategy { HORIZONTAL, VERTICAL, N_STRATEGIES, DEFAULT };
 
-std::vector<uint8_t> read_input_file(const std::string& filename,
-                                     uint16_t width) {
-  std::ifstream file(filename, std::ios::binary);
-  if (!file) {
-    throw std::runtime_error("Error: Unable to open input file: " + filename);
-  }
-
-  file.seekg(0, std::ios::end);
-  auto length = file.tellg();
-  file.seekg(0, std::ios::beg);
-
-  uint64_t expected_size = static_cast<uint64_t>(width) * width;
-  if (length < 0 || static_cast<uint64_t>(length) != expected_size) {
-    std::ostringstream error_msg;
-    error_msg << "Error: Input file '" << filename
-              << "' size mismatch. Expected " << expected_size << " bytes ("
-              << width << "x" << width << "), but got " << length << " bytes.";
-    throw std::runtime_error(error_msg.str());
-  }
-
-  std::vector<uint8_t> buffer;
-  buffer.reserve(expected_size);
-  buffer.assign((std::istreambuf_iterator<char>(file)),
-                std::istreambuf_iterator<char>());
-
-  if (buffer.size() != expected_size) {
-    std::ostringstream error_msg;
-    error_msg << "Error: Read incomplete data from file '" << filename
-              << "'. Expected " << expected_size << " bytes, read "
-              << buffer.size() << " bytes.";
-    throw std::runtime_error(error_msg.str());
-  }
-
-  return buffer;
-}
-
-void write_output_file(const std::string& filename,
-                       const std::vector<uint8_t>& data) {
+void begin_enc_output_file(const std::string& filename, uint16_t width,
+                           uint16_t height) {
   std::ofstream file(filename, std::ios::binary);
   if (!file) {
     throw std::runtime_error("Error: Unable to open output file: " + filename);
   }
-
-  file.write(reinterpret_cast<const char*>(data.data()), data.size());
-  if (!file) {
-    throw std::runtime_error("Error: Failed to write to output file: " +
-                             filename);
-  }
+  // write header (2B for width and 2B for height)
+  file.write(reinterpret_cast<const char*>(&width), sizeof(width));
+  file.write(reinterpret_cast<const char*>(&height), sizeof(height));
 }
 
 class Block {
   public:
   Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height)
-      : m_width(width), m_height(height) {
+      : m_width(width), m_height(height), m_picked_strategy(HORIZONTAL) {
     for (size_t i = 0; i < SerializationStrategy::N_STRATEGIES; i++)
       m_data[i].reserve(width * height);
     m_data[0].assign(data.begin(), data.end());
+    m_strategy_results.fill({0, 0});
   }
 
   void serialize_all_strategies() {
     serialize(HORIZONTAL);
     serialize(VERTICAL);
-    serialize(DIAGONAL);
+    // serialize(DIAGONAL);
   }
 
   void serialize(enum SerializationStrategy strategy) {
@@ -87,15 +61,14 @@ class Block {
         // default, does not need to be serialized
         return;
       case VERTICAL:
-        for (size_t i = 0; i < m_height; i++) {
-          for (size_t j = 0; j < m_width; j++) {
+        m_data[VERTICAL].clear();
+        m_data[VERTICAL].reserve(m_width * m_height);
+        for (size_t j = 0; j < m_width; ++j) {
+          for (size_t i = 0; i < m_height; ++i) {
             m_data[VERTICAL].push_back(m_data[HORIZONTAL][i * m_width + j]);
           }
         }
         break;
-      case DIAGONAL:
-        // TODO: implement diagonal serialization
-        return;
       default:
         break;
     }
@@ -134,10 +107,12 @@ class Block {
     }
 #endif
     m_tokens[strategy].push_back(token);
+    // add to the strategy result for picking the best one in adaptive
+    token.coded ? m_strategy_results[strategy].n_coded_tokens++
+                : m_strategy_results[strategy].n_unencoded_tokens++;
   }
 
-  void decode() {
-    const SerializationStrategy strategy = SerializationStrategy::HORIZONTAL;
+  void decode_using_strategy(SerializationStrategy strategy) {
     auto tokens = m_tokens[strategy];
     uint64_t position = 0;
     for (size_t i = 0; i < tokens.size(); i++) {
@@ -188,8 +163,12 @@ class Block {
 #endif
   }
 
-  void encode() {
-    const SerializationStrategy strategy = SerializationStrategy::HORIZONTAL;
+  void encode_using_strategy(SerializationStrategy strategy) {
+    // if the strategy is not set, use the horizontal one
+    if (strategy == SerializationStrategy::DEFAULT) {
+      strategy = SerializationStrategy::HORIZONTAL;
+    }
+
     auto hash_table = HashTable(1 << 12);
     // push the first two bytes unencoded since the dict is empty
     uint64_t position = 0;
@@ -241,30 +220,86 @@ class Block {
     }
   }
 
-  // returns the tokens interpreted as bytes
-  std::vector<uint8_t> write_tokens() {
-    const auto strategy = SerializationStrategy::HORIZONTAL;
-    std::vector<uint8_t> result;
+  void encode_adaptive() {
+    size_t best_encoded_size, current_strategy_result;
+    bool first = true;
+    for (size_t i = 0; i < SerializationStrategy::N_STRATEGIES; i++) {
+      // delta_transform(true);
+      encode_using_strategy(static_cast<SerializationStrategy>(i));
+      current_strategy_result =
+          m_strategy_results[i].n_coded_tokens * TOKEN_CODED_LEN +
+          m_strategy_results[i].n_unencoded_tokens * TOKEN_UNCODED_LEN;
+      if (first || current_strategy_result < best_encoded_size) {
+        best_encoded_size = current_strategy_result;
+        m_picked_strategy = static_cast<SerializationStrategy>(i);
+        first = false;
+      }
+    }
   }
 
-  // TODO: change to private
+  // returns the tokens interpreted as bytes
+  std::vector<uint8_t> append_to_file() {
+    std::vector<uint8_t> result;
+    return result;
+  }
+
   public:
   std::array<std::vector<uint8_t>, SerializationStrategy::N_STRATEGIES> m_data;
   std::array<std::vector<token_t>, SerializationStrategy::N_STRATEGIES>
       m_tokens;
+  std::array<StrategyResult, SerializationStrategy::N_STRATEGIES>
+      m_strategy_results;
   std::array<uint8_t, SerializationStrategy::N_STRATEGIES> m_delta_params;
   uint16_t m_width;
   uint16_t m_height;
   std::vector<uint8_t> m_decoded_data;
+
+  SerializationStrategy m_picked_strategy;
 };
 
 class Image {
   public:
-  Image(const std::vector<uint8_t>& data, uint16_t width, bool adaptive)
-      : m_data(data), m_width(width), m_adaptive(adaptive) {
-    if (data.size() != static_cast<size_t>(width) * width) {
-      // throw std::runtime_error(
-      //     "Error: Data size does not match image dimensions.");
+  Image(std::string i_filename, uint16_t width, bool adaptive)
+      : m_input_filename(i_filename), m_width(width), m_adaptive(adaptive) {
+    // read the input file and store it in m_data vector
+    read_enc_input_file();
+    if (m_data.size() != static_cast<size_t>(m_width) * m_width) {
+      throw std::runtime_error(
+          "Error: Data size does not match image dimensions.");
+    }
+  }
+
+  void read_enc_input_file() {
+    std::ifstream file(m_input_filename, std::ios::binary);
+    if (!file) {
+      throw std::runtime_error("Error: Unable to open input file: " +
+                               m_input_filename);
+    }
+
+    file.seekg(0, std::ios::end);
+    auto length = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    uint64_t expected_size = static_cast<uint64_t>(m_width) * m_width;
+    if (length < 0 || static_cast<uint64_t>(length) != expected_size) {
+      std::ostringstream error_msg;
+      error_msg << "Error: Input file '" << m_input_filename
+                << "' size mismatch. Expected " << expected_size << " bytes ("
+                << m_width << "x" << m_width << "), but got " << length
+                << " bytes.";
+      throw std::runtime_error(error_msg.str());
+    }
+
+    m_data.reserve(expected_size);
+    m_data.assign((std::istreambuf_iterator<char>(file)),
+                  std::istreambuf_iterator<char>());
+
+    if (m_data.size() != expected_size) {
+      std::ostringstream error_msg;
+      error_msg << "Error: Read incomplete data from file '" << m_input_filename
+                << "'. Expected " << expected_size << " bytes, read "
+                << m_data.size() << " bytes.";
+      throw std::runtime_error(error_msg.str());
     }
   }
 
@@ -338,10 +373,23 @@ class Image {
     }
   }
 
+  void encode_blocks() {
+    for (size_t i = 0; i < m_blocks.size(); i++) {
+      Block& block = m_blocks[i];
+      // block.delta_transform(m_adaptive);
+      if (m_adaptive) {
+        block.encode_adaptive();
+      } else {
+        block.encode_using_strategy(SerializationStrategy::DEFAULT);
+      }
+    }
+  }
+
   private:
-  std::vector<uint8_t> m_data;
+  std::string m_input_filename;
   uint16_t m_width;
   bool m_adaptive;
+  std::vector<uint8_t> m_data;
 
   public:
   std::vector<Block> m_blocks;
@@ -350,40 +398,30 @@ class Image {
 int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
   std::vector<uint8_t> data;
-  // data.reserve(512 * 512);
-  // for (int i = 0; i < 512 * 512; i++) {
-  //   data.push_back(static_cast<uint8_t>(i % 256));
-  // }
-
-  uint8_t sequence[] = {97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
-                        97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
-                        97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};
-
-  std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
 
 #if 0
+  uint8_t sequence[] = {97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
+    97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
+    97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};
+
+  std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
   Image i = Image(sequence_vec, 6, args.is_adaptive());
 #else
   Image i =
-      Image(read_input_file(args.get_input_file(), args.get_image_width()),
-            args.get_image_width(), args.is_adaptive());
+      Image(args.get_input_file(), args.get_image_width(), args.is_adaptive());
 #endif
-  // Image i = Image(data, args.get_image_width(), args.is_adaptive());
 
+  auto strategy = SerializationStrategy::VERTICAL;
   i.create_blocks();
-  // i.print_blocks();
-
-  // auto b = i.m_blocks[0];
-  // for (size_t i = 0; i < b.m_height; i++) {
-  //   for (size_t j = 0; j < b.m_width; j++)
-  //     std::cout << static_cast<int>(b.m_data[0][i * b.m_width + j]) << " ";
-  // }
   auto block = i.m_blocks[0];
   block.serialize_all_strategies();
-  block.encode();
-  block.decode();
-  auto original_data = block.m_data[0];
-  auto decoded_data = block.m_data[0];
+  block.encode_adaptive();
+
+  strategy = block.m_picked_strategy;
+
+  block.decode_using_strategy(strategy);
+  auto original_data = block.m_data[strategy];
+  auto decoded_data = block.m_data[strategy];
   auto data_size = original_data.size();
 #if 0
   std::cout << "Original data: \t";
@@ -409,26 +447,22 @@ int main(int argc, char* argv[]) {
 
   size_t coded = 0;
   size_t uncoded = 0;
-  for (auto& token : block.m_tokens[0]) {
+  for (auto& token : block.m_tokens[strategy]) {
     token.coded ? coded++ : uncoded++;
   }
 
-  size_t size_of_coded =
-      1 + ceil(log2(SEARCH_BUF_SIZE)) + ceil(log2(MAX_CODED_LEN));
-  size_t size_of_uncoded = 1 + 8;
-
   size_t size_original = (block.m_width * block.m_height) * 8;
   std::cout << "Original data size: " << size_original << "b" << std::endl;
-  std::cout << "Coded tokens: " << coded << "(" << size_of_coded * coded << "b)"
-            << std::endl;
-  std::cout << "Uncoded tokens: " << uncoded << "(" << size_of_uncoded * uncoded
+  std::cout << "Coded tokens: " << coded << "(" << TOKEN_CODED_LEN * coded
             << "b)" << std::endl;
+  std::cout << "Uncoded tokens: " << uncoded << "("
+            << TOKEN_UNCODED_LEN * uncoded << "b)" << std::endl;
   std::cout << "Total size: "
-            << (size_of_coded * coded) + (size_of_uncoded * uncoded)
+            << (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded)
             << std::endl;
   std::cout << "Compression ratio: "
-            << static_cast<double>((size_of_coded * coded) +
-                                   (size_of_uncoded * uncoded)) /
+            << static_cast<double>((TOKEN_CODED_LEN * coded) +
+                                   (TOKEN_UNCODED_LEN * uncoded)) /
                    size_original
             << std::endl;
   return 0;

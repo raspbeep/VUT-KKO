@@ -35,7 +35,7 @@
       "args": [
         "-d",
         "-i",
-        "${workspaceFolder}/benchmark/cb.raw",
+        "${workspaceFolder}/benchmark/df1h.raw",
         "-o",
         "dsa",
         "-w",
