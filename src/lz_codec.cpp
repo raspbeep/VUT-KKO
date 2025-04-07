@@ -361,12 +361,13 @@ int main(int argc, char* argv[]) {
 
   std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
 
-  // Image i = Image(sequence_vec, 6, args.is_adaptive());
-
+#if 0
+  Image i = Image(sequence_vec, 6, args.is_adaptive());
+#else
   Image i =
       Image(read_input_file(args.get_input_file(), args.get_image_width()),
             args.get_image_width(), args.is_adaptive());
-
+#endif
   // Image i = Image(data, args.get_image_width(), args.is_adaptive());
 
   i.create_blocks();
