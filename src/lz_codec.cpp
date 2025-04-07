@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -48,6 +50,20 @@ std::vector<uint8_t> read_input_file(const std::string& filename,
   }
 
   return buffer;
+}
+
+void write_output_file(const std::string& filename,
+                       const std::vector<uint8_t>& data) {
+  std::ofstream file(filename, std::ios::binary);
+  if (!file) {
+    throw std::runtime_error("Error: Unable to open output file: " + filename);
+  }
+
+  file.write(reinterpret_cast<const char*>(data.data()), data.size());
+  if (!file) {
+    throw std::runtime_error("Error: Failed to write to output file: " +
+                             filename);
+  }
 }
 
 class Block {
@@ -105,6 +121,7 @@ class Block {
   }
 
   void insert_token(SerializationStrategy strategy, token_t token) {
+#if 0
     std::cout << "insert_token: " << std::endl;
     std::cout << "  strategy: " << strategy << std::endl;
     std::cout << "  token: ";
@@ -115,7 +132,60 @@ class Block {
       std::cout << "uncoded: " << static_cast<int>(token.data.value) << "("
                 << static_cast<char>(token.data.value) << ")" << std::endl;
     }
+#endif
     m_tokens[strategy].push_back(token);
+  }
+
+  void decode() {
+    const SerializationStrategy strategy = SerializationStrategy::HORIZONTAL;
+    auto tokens = m_tokens[strategy];
+    uint64_t position = 0;
+    for (size_t i = 0; i < tokens.size(); i++) {
+      token_t token = tokens[i];
+      if (token.coded) {
+        // coded token
+        uint64_t token_position = position - token.data.offset;
+        uint16_t length = token.data.length + MIN_CODED_LEN;
+        for (uint16_t j = 0; j < length; j++) {
+          m_decoded_data.push_back(m_decoded_data[token_position + j]);
+        }
+#if 0
+        std::cout << "decoded: " << static_cast<int>(token.data.offset) << " "
+                  << static_cast<int>(token.data.length) << std::endl;
+        std::cout << "decoded: ";
+        for (uint16_t j = token_position; j < token_position + length; j++) {
+          std::cout << static_cast<int>(m_decoded_data[j]) << " ";
+        }
+        std::cout << "(";
+        for (uint16_t j = 0; j < length; j++) {
+          std::cout << static_cast<char>(m_decoded_data[j]);
+        }
+        std::cout << ")" << std::endl;
+#endif
+        position += length;
+
+      } else {
+        // uncoded token
+        m_decoded_data.push_back(token.data.value);
+#if 0
+        std::cout << "decoded: " << static_cast<int>(token.data.value) << "("
+                  << static_cast<char>(token.data.value) << ")" << std::endl;
+#endif
+        position++;
+      }
+    }
+#if 0
+    std::cout << "decoded data: ";
+    for (size_t i = 0; i < m_decoded_data.size(); i++) {
+      std::cout << static_cast<int>(m_decoded_data[i]) << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "decoded data: \t";
+    for (size_t i = 0; i < m_decoded_data.size(); i++) {
+      std::cout << static_cast<char>(m_decoded_data[i]);
+    }
+    std::cout << std::endl;
+#endif
   }
 
   void encode() {
@@ -123,18 +193,17 @@ class Block {
     auto hash_table = HashTable(1 << 12);
     // push the first two bytes unencoded since the dict is empty
     uint64_t position = 0;
-    for (position = 0; position < 2; position++) {
-      // m_tokens[strategy].push_back(
-      //     {.coded = false, .data = {.value = m_data[strategy][position]}});
+    for (position = 0; position < MIN_CODED_LEN; position++) {
       insert_token(strategy, {.coded = false,
                               .data = {.value = m_data[strategy][position]}});
     }
 
-    // hash_table.insert(m_data[strategy], 0);
+    hash_table.insert(m_data[strategy], 0);
     uint64_t next_pos;
     uint64_t removed_until = 0;
     // iterate over all bytes of the input
-    for (position = 2, next_pos = 2; position < m_data[strategy].size();) {
+    for (position = MIN_CODED_LEN, next_pos = MIN_CODED_LEN;
+         position < m_data[strategy].size();) {
       // search for the longest prefix in the hash table
       search_result result = hash_table.search(m_data[strategy], position);
       next_pos = position + result.length;
@@ -151,10 +220,9 @@ class Block {
                                 .data = {.value = m_data[strategy][position]}});
         next_pos++;
       }
-      uint16_t old_pos = position;
-      uint16_t moved_forward = next_pos - position;
+
+      // insert new prefixes into the hash table
       while (position < next_pos) {
-        // insert the current byte into the hash table
         hash_table.insert(m_data[strategy], position - MIN_CODED_LEN + 1);
         position++;
       }
@@ -162,15 +230,21 @@ class Block {
       // remove old entries from the hash table
       if (position > SEARCH_BUF_SIZE) {
         size_t remove_from = removed_until;
-        size_t remove_to = position - SEARCH_BUF_SIZE - MIN_CODED_LEN;
+        size_t remove_to = position - SEARCH_BUF_SIZE - 1;
         for (size_t r = remove_from; r <= remove_to; r++) {
           hash_table.remove(m_data[strategy], r);
         }
         removed_until = remove_to + 1;
       }
 
-      std::cout << "position: " << position << std::endl;
+      // std::cout << "position: " << position << std::endl;
     }
+  }
+
+  // returns the tokens interpreted as bytes
+  std::vector<uint8_t> write_tokens() {
+    const auto strategy = SerializationStrategy::HORIZONTAL;
+    std::vector<uint8_t> result;
   }
 
   // TODO: change to private
@@ -181,6 +255,7 @@ class Block {
   std::array<uint8_t, SerializationStrategy::N_STRATEGIES> m_delta_params;
   uint16_t m_width;
   uint16_t m_height;
+  std::vector<uint8_t> m_decoded_data;
 };
 
 class Image {
@@ -280,15 +355,17 @@ int main(int argc, char* argv[]) {
   //   data.push_back(static_cast<uint8_t>(i % 256));
   // }
 
-  uint8_t sequence[] = {
-      97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
-      97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
-      97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};  //, 97, 102, 97, 102};
+  uint8_t sequence[] = {97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
+                        97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
+                        97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};
 
   std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
+
+  // Image i = Image(sequence_vec, 6, args.is_adaptive());
+
   Image i =
-      Image(/*read_input_file(args.get_input_file(), args.get_image_width())*/
-            sequence_vec, /*args.get_image_width()*/ 6, args.is_adaptive());
+      Image(read_input_file(args.get_input_file(), args.get_image_width()),
+            args.get_image_width(), args.is_adaptive());
 
   // Image i = Image(data, args.get_image_width(), args.is_adaptive());
 
@@ -300,7 +377,58 @@ int main(int argc, char* argv[]) {
   //   for (size_t j = 0; j < b.m_width; j++)
   //     std::cout << static_cast<int>(b.m_data[0][i * b.m_width + j]) << " ";
   // }
-  i.m_blocks[0].serialize_all_strategies();
-  i.m_blocks[0].encode();
+  auto block = i.m_blocks[0];
+  block.serialize_all_strategies();
+  block.encode();
+  block.decode();
+  auto original_data = block.m_data[0];
+  auto decoded_data = block.m_data[0];
+  auto data_size = original_data.size();
+#if 0
+  std::cout << "Original data: \t";
+  for (size_t i = 0; i < data_size; i++) {
+    std::cout << static_cast<char>(original_data[i]);
+  }
+  std::cout << std::endl;
+#endif
+  bool identical = true;
+  for (size_t i = 0; i < data_size; i++) {
+    if (block.m_decoded_data[i] != original_data[i]) {
+      std::cout << "Error: Decoded data does not match original data at index "
+                << i << ": " << static_cast<int>(block.m_decoded_data[i])
+                << " != " << static_cast<int>(original_data[i]) << std::endl;
+      identical = false;
+    }
+  }
+  if (identical) {
+    std::cout << "Decoded data matches original data." << std::endl;
+  } else {
+    std::cout << "Decoded data does not match original data." << std::endl;
+  }
+
+  size_t coded = 0;
+  size_t uncoded = 0;
+  for (auto& token : block.m_tokens[0]) {
+    token.coded ? coded++ : uncoded++;
+  }
+
+  size_t size_of_coded =
+      1 + ceil(log2(SEARCH_BUF_SIZE)) + ceil(log2(MAX_CODED_LEN));
+  size_t size_of_uncoded = 1 + 8;
+
+  size_t size_original = (block.m_width * block.m_height) * 8;
+  std::cout << "Original data size: " << size_original << "b" << std::endl;
+  std::cout << "Coded tokens: " << coded << "(" << size_of_coded * coded << "b)"
+            << std::endl;
+  std::cout << "Uncoded tokens: " << uncoded << "(" << size_of_uncoded * uncoded
+            << "b)" << std::endl;
+  std::cout << "Total size: "
+            << (size_of_coded * coded) + (size_of_uncoded * uncoded)
+            << std::endl;
+  std::cout << "Compression ratio: "
+            << static_cast<double>((size_of_coded * coded) +
+                                   (size_of_uncoded * uncoded)) /
+                   size_original
+            << std::endl;
   return 0;
 }

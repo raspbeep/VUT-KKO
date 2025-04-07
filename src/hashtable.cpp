@@ -7,12 +7,6 @@
 // shift value for rolling hash function
 #define d 5
 
-#define N_BITS_CODED 4
-// shift 1 to the left N_BITS_CODED times
-// -1 to get the maximum value for N_BITS_CODED bits
-// and add the minimum coded length to optimize for value mapping
-constexpr uint16_t MAX_CODED_LEN = (1 << N_BITS_CODED) - 1 + MIN_CODED_LEN;
-
 uint32_t HashTable::hash_function(uint8_t* content) {
   uint32_t key = 0;
   for (uint16_t i = 0; i < (MIN_CODED_LEN + 1); i++) {
@@ -64,6 +58,21 @@ search_result HashTable::search(std::vector<uint8_t>& data,
 
   // traverse the linked list at the index of the hash table
   while (current != nullptr) {
+    bool match = true;
+    // check the MIN_CODED_LEN bytes of data at the given position
+    for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
+      uint8_t cmp1 = data[current_pos + i];
+      uint8_t cmp2 = data[current->position + i];
+      if (cmp1 != cmp2) {
+        // hash collision! hashes matched but the data is different
+        current = current->next;
+        match = false;
+        break;
+      }
+    }
+    if (!match) {
+      continue;
+    }
     uint16_t current_match_length = match_length(data, current_pos, current);
     if (current_match_length > result.length) {
       result.length = current_match_length;
@@ -104,7 +113,7 @@ void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
   // hash of the MIN_CODED_LEN bytes of data at the given position
   uint32_t index = hash_function(&data[position]);
 
-#if 1
+#if 0
   std::cout << "HashTable::insert: " << std::endl;
   std::cout << "  position: " << position << std::endl;
   std::cout << "  index: " << index << std::endl;
@@ -139,7 +148,7 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
     prev = current;
     current = current->next;
   }
-#if 1
+#if 0
   std::cout << "HashTable::remove: " << std::endl;
   std::cout << "  position: " << position << std::endl;
   std::cout << "  index: " << key << std::endl;

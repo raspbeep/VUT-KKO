@@ -39,8 +39,8 @@
         "-o",
         "dsa",
         "-w",
-        "512",
-        "-a"
+        "512"
+        // "-a"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
