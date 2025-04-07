@@ -20,7 +20,7 @@ const uint16_t OFFSET_BITS = ceil(log2(SEARCH_BUF_SIZE));  // 7
 const uint16_t LENGTH_BITS = ceil(log2(MAX_CODED_LEN));    // 5
 
 const size_t TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;  // 13
-const size_t TOKEN_UNCODED_LEN = 1 + 8;                        // 9
+const size_t TOKEN_UNCODED_LEN = 1 + 8;                        // 8
 
 struct StrategyResult {
   size_t n_coded_tokens;
@@ -468,6 +468,7 @@ class Image {
 void print_final_stats(Image& img) {
   size_t coded = 0;
   size_t uncoded = 0;
+  size_t n_blocks = img.m_blocks.size();
   for (auto& block : img.m_blocks) {
     auto strategy = block.m_picked_strategy;
     for (auto& token : block.m_tokens[strategy]) {
@@ -481,9 +482,13 @@ void print_final_stats(Image& img) {
             << "b)" << std::endl;
   std::cout << "Uncoded tokens: " << uncoded << "("
             << TOKEN_UNCODED_LEN * uncoded << "b)" << std::endl;
-  std::cout << "Total size: "
-            << (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) << "b"
-            << ((TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded)) / 8
+  std::cout << "Total size (including block headers): "
+            << (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) +
+                   (n_blocks * 32)
+            << "b\t"
+            << ((TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) +
+                (n_blocks * 32)) /
+                   8
             << "B" << std::endl;
   std::cout << "Compression ratio: "
             << static_cast<double>((TOKEN_CODED_LEN * coded) +
