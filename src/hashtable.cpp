@@ -126,7 +126,7 @@ void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
   // hash of the MIN_CODED_LEN bytes of data at the given position
   uint32_t index = hash_function(data, position);
 
-#if 0
+#if DEBUG_PRINT
   std::cout << "HashTable::insert: " << std::endl;
   std::cout << "  position: " << position << std::endl;
   std::cout << "  index: " << index << std::endl;
@@ -161,7 +161,7 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
     prev = current;
     current = current->next;
   }
-#if 0
+#if DEBUG_PRINT
   std::cout << "HashTable::remove: " << std::endl;
   std::cout << "  position: " << position << std::endl;
   std::cout << "  index: " << key << std::endl;

@@ -140,7 +140,9 @@ class Image {
       block.decode_using_strategy(DEFAULT);
       block.compare_encoded_decoded();
 #endif
+#if DEBUG_PRINT
       block.print_tokens();
+#endif
     }
 
     write_blocks_to_stream(m_output_filename, m_width, m_width, OFFSET_BITS,
@@ -153,7 +155,9 @@ class Image {
       block.decode_using_strategy(DEFAULT);
       m_data.insert(m_data.end(), block.m_decoded_data.begin(),
                     block.m_decoded_data.end());
+#if DEBUG_PRINT
       block.print_tokens();
+#endif
     }
   }
 
@@ -254,9 +258,6 @@ void print_final_stats(Image& img) {
                    static_cast<double>((TOKEN_CODED_LEN * coded) +
                                        (TOKEN_UNCODED_LEN * uncoded))
             << std::endl;
-  std::cout << "Saved: "
-            << (size_original - total_size) / static_cast<double>(size_original)
-            << "%" << std::endl;
 }
 
 int main(int argc, char* argv[]) {

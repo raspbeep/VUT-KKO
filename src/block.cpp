@@ -190,8 +190,6 @@ void Block::encode_using_strategy(SerializationStrategy strategy) {
       }
       removed_until = remove_to + 1;
     }
-
-    // std::cout << "position: " << position << std::endl;
   }
 }
 
