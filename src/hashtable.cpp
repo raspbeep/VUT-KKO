@@ -7,11 +7,14 @@
 // shift value for rolling hash function
 #define d 5
 
-uint32_t HashTable::hash_function(uint8_t* content) {
+uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
+                                  uint64_t position) {
   uint32_t key = 0;
   for (uint16_t i = 0; i < (MIN_CODED_LEN + 1); i++) {
-    key = (key << d) ^ (content[i]);
-    key %= size;
+    if (position + i < data.size()) {
+      key = (key << d) ^ (data[position + i]);
+      key %= size;
+    }
   }
   return key;
 }
@@ -47,7 +50,7 @@ HashTable::~HashTable() {
 // if no match was found, returns a struct with found = false
 search_result HashTable::search(std::vector<uint8_t>& data,
                                 uint64_t current_pos) {
-  uint32_t key = hash_function(&data[current_pos]);  // hashes M bytes of data
+  uint32_t key = hash_function(data, current_pos);  // hashes M bytes of data
 
   HashNode* current = table[key];
   struct search_result result{
@@ -90,9 +93,19 @@ search_result HashTable::search(std::vector<uint8_t>& data,
 uint16_t HashTable::match_length(std::vector<uint8_t>& data,
                                  uint64_t current_pos, HashNode* current) {
   uint16_t match_length = 0;
-  for (uint16_t i = 0; i < MAX_CODED_LEN; ++i) {
+  for (uint16_t i = 0;
+       i < MAX_CODED_LEN && current_pos + i + MIN_CODED_LEN < data.size();
+       ++i) {
     auto cmp1_index = current_pos + i + MIN_CODED_LEN;
     auto cmp2_index = current->position + i + MIN_CODED_LEN;
+    if (cmp1_index >= data.size() || cmp2_index >= data.size()) {
+      std::cout << "cmp1_index: " << cmp1_index << std::endl;
+      std::cout << "cmp2_index: " << cmp2_index << std::endl;
+      std::cout << "data.size(): " << data.size() << std::endl;
+      std::cout << "current_pos: " << current_pos << std::endl;
+      throw std::runtime_error(
+          "Error: Index out of bounds while matching prefix");
+    }
     auto cmp1 = data[cmp1_index];
     auto cmp2 = data[cmp2_index];
     if (cmp1 == cmp2) {
@@ -111,7 +124,7 @@ void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
   HashNode* new_node = new HashNode;
   new_node->position = position;
   // hash of the MIN_CODED_LEN bytes of data at the given position
-  uint32_t index = hash_function(&data[position]);
+  uint32_t index = hash_function(data, position);
 
 #if 0
   std::cout << "HashTable::insert: " << std::endl;
@@ -140,7 +153,7 @@ void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
 }
 
 void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
-  uint32_t key = hash_function(&data[position]);
+  uint32_t key = hash_function(data, position);
   HashNode* current = table[key];
   HashNode* prev = nullptr;
 

@@ -16,11 +16,11 @@
 
 #define SEARCH_BUF_SIZE 63
 
-const uint16_t OFFSET_BITS = ceil(log2(SEARCH_BUF_SIZE));  // 7
-const uint16_t LENGTH_BITS = ceil(log2(MAX_CODED_LEN));    // 5
+uint16_t OFFSET_BITS = ceil(log2(SEARCH_BUF_SIZE));  // 7
+uint16_t LENGTH_BITS = ceil(log2(MAX_CODED_LEN));    // 5
 
-const size_t TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;  // 13
-const size_t TOKEN_UNCODED_LEN = 1 + 8;                        // 8
+size_t TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;  // 13
+size_t TOKEN_UNCODED_LEN = 1 + 8;                        // 8
 
 struct StrategyResult {
   size_t n_coded_tokens;
@@ -274,6 +274,7 @@ class Block {
 
 class Image {
   public:
+  // Constructor for encoding
   Image(std::string i_filename, std::string o_filename, uint16_t width,
         bool adaptive)
       : m_input_filename(i_filename),
@@ -288,10 +289,30 @@ class Image {
     }
   }
 
+  // Constructor for decoding
+  Image(std::string i_filename, std::string o_filename)
+      : m_input_filename(i_filename), m_output_filename(o_filename) {
+    // read the input file and store it in m_data vector
+
+    read_dec_input_file();
+
+    if (m_data.size() != static_cast<size_t>(m_width) * m_width) {
+      throw std::runtime_error(
+          "Error: Data size does not match image dimensions.");
+    }
+  }
+
   ~Image() {
     if (o_file_handle.is_open()) {
       o_file_handle.close();
     }
+  }
+
+  void read_dec_input_file() {
+    // read the input file and store the tokens in m_tokens vector
+    // store all the params from header in the class variables
+    readTokensFromFileFunctional(m_input_filename, m_width, m_width,
+                                 OFFSET_BITS, LENGTH_BITS, m_tokens);
   }
 
   void read_enc_input_file() {
@@ -328,25 +349,15 @@ class Image {
     }
   }
 
-  void begin_enc_output_file() {
-    o_file_handle.open(m_output_filename, std::ios::binary | std::ios::trunc);
-    if (!o_file_handle) {
-      throw std::runtime_error("Error: Unable to open output file: " +
-                               m_output_filename);
-    }
-    // write header (2B for width and 2B for height)
-    o_file_handle.write(reinterpret_cast<const char*>(&m_width),
-                        sizeof(m_width));
-    o_file_handle.write(reinterpret_cast<const char*>(&m_width),
-                        sizeof(m_width));
-  }
-
   void create_blocks() {
     if (!m_adaptive) {
       create_single_block();
     } else {
       create_multiple_blocks();
     }
+  }
+
+  void create_blocks_decode() {
   }
 
   void print_blocks() {
@@ -383,8 +394,8 @@ class Image {
                     block.m_tokens[block.m_picked_strategy].end());
     }
 
-    writeTokensToFileFunctional(m_output_filename, m_width, m_width,
-                                OFFSET_BITS, LENGTH_BITS, tokens);
+    write_blocks_to_stream(m_output_filename, m_width, m_width, OFFSET_BITS,
+                           LENGTH_BITS, tokens);
   }
 
   uint16_t get_width() const {
@@ -452,6 +463,7 @@ class Image {
   uint16_t m_width;
   bool m_adaptive;
   std::vector<uint8_t> m_data;
+  std::vector<token_t> m_tokens;
 
   public:
   std::vector<Block> m_blocks;
@@ -490,23 +502,17 @@ int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
   std::cout << "max length: " << MAX_CODED_LEN << std::endl;
   std::cout << "offset bits: " << OFFSET_BITS << std::endl;
-#if DEBUG_DUMMY_SEQ
-  std::vector<uint8_t> data;
-  uint8_t sequence[] = {97, 97, 99, 97, 97, 99, 97, 97, 99, 97,  97, 99,
-                        97, 97, 99, 97, 97, 99, 97, 97, 97, 99,  97, 97,
-                        97, 98, 99, 97, 98, 97, 97, 97, 99, 100, 97, 100};
 
-  std::vector<uint8_t> sequence_vec(std::begin(sequence), std::end(sequence));
-  Image i = Image(sequence_vec, 6, args.is_adaptive());
-#else
-  Image i = Image(args.get_input_file(), args.get_output_file(),
-                  args.get_image_width(), args.is_adaptive());
-#endif
-
-  i.create_blocks();
-  i.encode_blocks();
-
-  print_final_stats(i);
+  if (args.is_compress_mode()) {
+    Image i = Image(args.get_input_file(), args.get_output_file(),
+                    args.get_image_width(), args.is_adaptive());
+    i.create_blocks();
+    i.encode_blocks();
+    print_final_stats(i);
+  } else {
+    Image i = Image(args.get_input_file(), args.get_output_file());
+    i.create_blocks_decode();
+  }
 
   return 0;
 }

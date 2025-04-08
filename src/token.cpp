@@ -1,18 +1,14 @@
 #include "token.hpp"
 
-// writer
-// Internal state for bit writing
 static uint8_t writer_buffer = 0;
 static int writer_bit_count = 0;
 
-// Resets the internal state of the bit writer
-void resetBitWriterState() {
+void reset_bit_writer_state() {
   writer_buffer = 0;
   writer_bit_count = 0;
 }
 
-// Writes a single bit to the file stream using static buffer
-void writeBitToFile(std::ofstream& file, bool bit) {
+void write_bit_to_file(std::ofstream& file, bool bit) {
   if (!file.is_open() || !file.good()) {
     throw std::runtime_error("File stream is not valid for writing.");
   }
@@ -30,44 +26,38 @@ void writeBitToFile(std::ofstream& file, bool bit) {
   }
 }
 
-// Writes multiple bits from a value
-void writeBitsToFile(std::ofstream& file, uint32_t value, int numBits) {
+void write_bits_to_file(std::ofstream& file, uint32_t value, int numBits) {
   if (numBits < 0 || numBits > 32) {
     throw std::out_of_range("Number of bits must be between 0 and 32.");
   }
   for (int i = numBits - 1; i >= 0; i--) {
-    writeBitToFile(file, (value >> i) & 1);
+    write_bit_to_file(file, (value >> i) & 1);
   }
 }
 
-// Flushes any remaining bits in the static buffer
-void flushBitsToFile(std::ofstream& file) {
+void flush_bits_to_file(std::ofstream& file) {
   if (!file.is_open() || !file.good()) {
-    // Allow flushing even if file closed, just clear buffer state
-    resetBitWriterState();
+    reset_bit_writer_state();
     return;
   }
 
   if (writer_bit_count > 0) {
-    writer_buffer <<= (8 - writer_bit_count);  // Pad with zeros
+    writer_buffer <<= (8 - writer_bit_count);
     file.write(reinterpret_cast<const char*>(&writer_buffer), 1);
     if (!file.good()) {
-      // Don't throw here, as flushing might happen during cleanup
       std::cerr << "Warning: Failed to write final byte during flush."
                 << std::endl;
     }
   }
   // Reset state after flushing
-  resetBitWriterState();
+  reset_bit_writer_state();
 }
 
-// --- Main Writing Logic ---
-
 // Function to write tokens to binary file with bit packing
-bool writeTokensToFileFunctional(const std::string& filename, uint16_t width,
-                                 uint16_t height, uint16_t offset_length,
-                                 uint16_t length_bits,
-                                 const std::vector<token_t>& tokens) {
+bool write_blocks_to_stream(const std::string& filename, uint16_t width,
+                            uint16_t height, uint16_t offset_length,
+                            uint16_t length_bits,
+                            const std::vector<token_t>& tokens) {
   std::ofstream file(filename, std::ios::binary);
 
   if (!file) {
@@ -76,7 +66,7 @@ bool writeTokensToFileFunctional(const std::string& filename, uint16_t width,
   }
 
   // Reset static writer state before starting
-  resetBitWriterState();
+  reset_bit_writer_state();
 
   try {
     // Write header (not bit-packed)
@@ -93,7 +83,7 @@ bool writeTokensToFileFunctional(const std::string& filename, uint16_t width,
     // Write tokens with bit packing using functional helpers
     for (const auto& token : tokens) {
       // Write coded flag (1 bit)
-      writeBitToFile(file, token.coded);
+      write_bit_to_file(file, token.coded);
 
       // Write token data
       if (token.coded) {
@@ -102,21 +92,21 @@ bool writeTokensToFileFunctional(const std::string& filename, uint16_t width,
           throw std::out_of_range(
               "Offset/Length bit size too large for uint16_t.");
         }
-        writeBitsToFile(file, token.data.offset, offset_length);
-        writeBitsToFile(file, token.data.length, length_bits);
+        write_bits_to_file(file, token.data.offset, offset_length);
+        write_bits_to_file(file, token.data.length, length_bits);
       } else {
         // Uncoded token: write ASCII value (8 bits)
-        writeBitsToFile(file, token.data.value, 8);
+        write_bits_to_file(file, token.data.value, 8);
       }
     }
 
     // Flush any remaining bits
-    flushBitsToFile(file);  // Also resets state
+    flush_bits_to_file(file);  // Also resets state
 
   } catch (const std::exception& e) {
     std::cerr << "Error during file writing: " << e.what() << std::endl;
     // Ensure state is reset even on error before closing
-    resetBitWriterState();
+    reset_bit_writer_state();
     file.close();
     return false;
   }

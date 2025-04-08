@@ -40,7 +40,7 @@ class HashTable {
   uint32_t size;
 
   private:
-  uint32_t hash_function(uint8_t* content);
+  uint32_t hash_function(std::vector<uint8_t>& data, uint64_t position);
 
   uint16_t match_length(std::vector<uint8_t>& data, uint64_t current_pos,
                         HashNode* current);
