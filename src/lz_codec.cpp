@@ -171,7 +171,10 @@ class Image {
     uint64_t expected_size = static_cast<uint64_t>(m_width) * m_width;
 
     m_data.clear();
-    m_data.resize(expected_size);
+
+    if (expected_size != 0) {
+      m_data.resize(expected_size);
+    }
 
     if (!m_adaptive) {
       if (m_blocks.size() != 1) {
