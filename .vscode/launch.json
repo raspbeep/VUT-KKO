@@ -33,14 +33,14 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/lz_codec",
       "args": [
-        "-d",
+        "-c",
         "-i",
         "${workspaceFolder}/benchmark/df1h.raw",
         "-o",
         "dsa",
         "-w",
-        "512"
-        // "-a"
+        "512",
+        "-a"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
