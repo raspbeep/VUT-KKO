@@ -85,8 +85,8 @@ uint16_t ArgumentParser::get_image_width() const {
 }
 
 void ArgumentParser::print_args() const {
-  std::cout << "Compress mode: " << compress_mode << std::endl;
-  std::cout << "Decompress mode: " << decompress_mode << std::endl;
+  compress_mode ? std::cout << "Compress mode" << std::endl
+                : std::cout << "Decompress mode" << std::endl;
   std::cout << "Input file: " << input_file << std::endl;
   std::cout << "Output file: " << output_file << std::endl;
   std::cout << "Adaptive strategy: " << adaptive << std::endl;

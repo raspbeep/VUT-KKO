@@ -45,6 +45,20 @@ void Block::serialize(SerializationStrategy strategy) {
   }
 }
 
+void Block::deserialize() {
+  const SerializationStrategy strategy = m_picked_strategy;
+  if (strategy == HORIZONTAL) {
+    return;
+  }
+  m_decoded_deserialized_data.clear();
+  m_decoded_deserialized_data.reserve(m_width * m_height);
+  for (size_t j = 0; j < m_width; ++j) {
+    for (size_t i = 0; i < m_height; ++i) {
+      m_decoded_deserialized_data.push_back(m_decoded_data[i * m_width + j]);
+    }
+  }
+}
+
 void Block::delta_transform(bool adaptive) {
   if (adaptive) {
     // find minimum in each m_data vector

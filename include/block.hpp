@@ -20,6 +20,8 @@ class Block {
 
   void serialize(SerializationStrategy strategy);
 
+  void deserialize();
+
   void delta_transform(bool adaptive);
 
   void insert_token(SerializationStrategy strategy, token_t token);
@@ -38,6 +40,13 @@ class Block {
 
   std::vector<uint8_t>& get_data();
 
+  const std::vector<uint8_t>& get_decoded_data() {
+    if (m_picked_strategy == DEFAULT) {
+      return m_decoded_data;
+    }
+    return m_decoded_deserialized_data;
+  }
+
   public:
   std::array<std::vector<uint8_t>, N_STRATEGIES> m_data;
   std::array<std::vector<token_t>, N_STRATEGIES> m_tokens;
@@ -46,6 +55,7 @@ class Block {
   uint16_t m_width;
   uint16_t m_height;
   std::vector<uint8_t> m_decoded_data;
+  std::vector<uint8_t> m_decoded_deserialized_data;
 
   SerializationStrategy m_picked_strategy;
 };

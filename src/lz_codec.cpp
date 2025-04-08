@@ -51,7 +51,7 @@ class Image {
     uint16_t offset_bits;
     uint16_t length_bits;
     read_blocks_from_file(m_input_filename, m_width, m_width, offset_bits,
-                          length_bits, m_blocks);
+                          length_bits, m_adaptive, m_blocks);
   }
 
   void read_enc_input_file() {
@@ -95,10 +95,8 @@ class Image {
       throw std::runtime_error("Error: Unable to open output file: " +
                                m_output_filename);
     }
-    // iterate over all blocks, serialize, encode and write them
-    for (size_t i = 0; i < m_data.size(); i++) {
-      o_file_handle.put(m_data[i]);
-    }
+    o_file_handle.write(reinterpret_cast<const char*>(m_data.data()),
+                        m_data.size());
     o_file_handle.close();
     std::cout << "Decoded data written to: " << m_output_filename << std::endl;
     std::cout << "Written " << m_data.size() << " bytes." << std::endl;
@@ -153,11 +151,117 @@ class Image {
     for (size_t i = 0; i < m_blocks.size(); i++) {
       Block& block = m_blocks[i];
       block.decode_using_strategy(DEFAULT);
-      m_data.insert(m_data.end(), block.m_decoded_data.begin(),
-                    block.m_decoded_data.end());
 #if DEBUG_PRINT
       block.print_tokens();
 #endif
+      if (m_adaptive) {
+        block.deserialize();
+      }
+    }
+  }
+
+  void compose_image() {
+    if (m_blocks.empty()) {
+      std::cerr << "Warning: No blocks available to compose the image."
+                << std::endl;
+      m_data.clear();
+      return;
+    }
+
+    uint64_t expected_size = static_cast<uint64_t>(m_width) * m_width;
+
+    m_data.clear();
+    m_data.resize(expected_size);
+
+    if (!m_adaptive) {
+      if (m_blocks.size() != 1) {
+        throw std::runtime_error(
+            "Error composing image: Non-adaptive mode expects exactly one "
+            "block, found " +
+            std::to_string(m_blocks.size()));
+      }
+      const Block& single_block = m_blocks[0];
+
+      if (single_block.m_width != m_width || single_block.m_height != m_width) {
+        throw std::runtime_error(
+            "Error composing image: Single block dimensions mismatch image "
+            "dimensions.");
+      }
+      if (single_block.m_decoded_data.size() != expected_size) {
+        throw std::runtime_error(
+            "Error composing image: Decoded data size mismatch in "
+            "non-adaptive mode.");
+      }
+
+      m_data = single_block.m_decoded_data;
+
+    } else {
+      uint16_t n_blocks_dim = (m_width + block_size - 1) / block_size;
+      size_t block_index = 0;  // To iterate through the m_blocks vector
+
+      // Iterate through the grid of blocks (row by row, then column by column)
+      for (uint16_t block_r = 0; block_r < n_blocks_dim; ++block_r) {
+        uint16_t start_row =
+            block_r *
+            block_size;  // Top row of the current block in the final image
+
+        for (uint16_t block_c = 0; block_c < n_blocks_dim; ++block_c) {
+          uint16_t start_col =
+              block_c *
+              block_size;  // Left col of the current block in the final image
+
+          if (block_index >= m_blocks.size()) {
+            throw std::runtime_error(
+                "Error composing image: Not enough blocks provided for image "
+                "dimensions.");
+          }
+
+          Block& current_block = m_blocks[block_index];
+          const std::vector<uint8_t>& block_data =
+              current_block.get_decoded_data();
+          uint16_t current_block_height = current_block.m_height;
+          uint16_t current_block_width = current_block.m_width;
+
+          if (block_data.size() !=
+              static_cast<size_t>(current_block_width) * current_block_height) {
+            throw std::runtime_error("Error composing image: Block #" +
+                                     std::to_string(block_index) +
+                                     " has internal data size mismatch.");
+          }
+
+          size_t block_data_idx = 0;
+          for (uint16_t r = 0; r < current_block_height; ++r) {
+            for (uint16_t c = 0; c < current_block_width; ++c) {
+              size_t dest_row = start_row + r;
+              size_t dest_col = start_col + c;
+
+              if (dest_row >= m_width || dest_col >= m_width) {
+                throw std::runtime_error(
+                    "Error composing image: Calculated destination index out "
+                    "of image bounds.");
+              }
+
+              size_t dest_index = dest_row * m_width + dest_col;
+
+              m_data[dest_index] = block_data[block_data_idx++];
+            }
+          }
+          block_index++;
+        }
+      }
+
+      if (block_index != m_blocks.size()) {
+        std::cerr << "Warning: Composed image using " << block_index
+                  << " blocks, but " << m_blocks.size()
+                  << " were decoded. File might be incomplete." << std::endl;
+      }
+    }
+
+    if (m_data.size() != expected_size) {
+      throw std::runtime_error(
+          "Error composing image: Final composed image size (" +
+          std::to_string(m_data.size()) + ") does not match expected size (" +
+          std::to_string(expected_size) + ").");
     }
   }
 
@@ -173,14 +277,13 @@ class Image {
   }
 
   void create_multiple_blocks() {
-    m_blocks.clear();  // Clear previous blocks if any
+    m_blocks.clear();
     uint16_t n_blocks_dim = (m_width + block_size - 1) / block_size;
     m_blocks.reserve(static_cast<size_t>(n_blocks_dim) * n_blocks_dim);
 
-    // Iterate through block indices (row and column)
     for (uint16_t block_r = 0; block_r < n_blocks_dim; ++block_r) {
       uint16_t start_row = block_r * block_size;
-      // Calculate the actual height of the current block (handles boundary)
+
       uint16_t current_block_height =
           std::min<uint16_t>(block_size, m_width - start_row);
 
@@ -190,11 +293,9 @@ class Image {
             std::min<uint16_t>(block_size, m_width - start_col);
 
         std::vector<uint8_t> block_data;
-        // Reserve exact space needed for the current block's data
         block_data.reserve(static_cast<size_t>(current_block_width) *
                            current_block_height);
 
-        // Iterate through pixels within the current block
         for (uint16_t r = start_row; r < start_row + current_block_height;
              ++r) {
           for (uint16_t c = start_col; c < start_col + current_block_width;
@@ -274,6 +375,7 @@ int main(int argc, char* argv[]) {
   } else {
     Image i = Image(args.get_input_file(), args.get_output_file());
     i.decode_blocks();
+    i.compose_image();
     i.write_dec_output_file();
   }
 
