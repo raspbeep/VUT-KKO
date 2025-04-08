@@ -8,12 +8,12 @@
 #define DEBUG_PRINT 0
 #define DEBUG_COMP_ENC_UNENC 1
 
-#define SEARCH_BUF_SIZE 63
+#define SEARCH_BUF_SIZE 32
 
 // minimum encode length
 #define MIN_CODED_LEN 3
 
-#define N_BITS_CODED 10
+#define N_BITS_CODED 13
 // shift 1 to the left N_BITS_CODED times
 // -1 to get the maximum value for N_BITS_CODED bits
 // and add the minimum coded length to optimize for value mapping
@@ -44,7 +44,7 @@ struct StrategyResult {
   size_t n_unencoded_tokens;
 };
 
-const uint16_t block_size = 16;
+constexpr uint16_t block_size = 16;
 
 constexpr size_t HORIZONTAL = 0;
 constexpr size_t VERTICAL = 1;

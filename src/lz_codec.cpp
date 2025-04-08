@@ -55,8 +55,8 @@ class Image {
     // store all the params from header in the class variables
     uint16_t offset_bits;
     uint16_t length_bits;
-    readTokensFromFileFunctional(m_input_filename, m_width, m_width,
-                                 offset_bits, length_bits, m_tokens);
+    read_blocks_from_file(m_input_filename, m_width, m_width, offset_bits,
+                          length_bits, m_blocks);
   }
 
   void read_enc_input_file() {
@@ -101,9 +101,6 @@ class Image {
     }
   }
 
-  void create_blocks_decode() {
-  }
-
   void print_blocks() {
     for (size_t i = 0; i < m_blocks.size(); i++) {
       Block& block = m_blocks[i];
@@ -124,7 +121,7 @@ class Image {
       } else {
         block.encode_using_strategy(DEFAULT);
       }
-#if 1
+#if DEBUG_PRINT
       std::cout << "Block #" << i
                 << " picked strategy: " << block.m_picked_strategy << std::endl;
 #endif
@@ -231,10 +228,13 @@ void print_final_stats(Image& img) {
   std::cout << "Total size (including block headers): " << total_size << "b\t"
             << total_size / 8 << "B" << std::endl;
   std::cout << "Compression ratio: "
-            << static_cast<double>((TOKEN_CODED_LEN * coded) +
-                                   (TOKEN_UNCODED_LEN * uncoded)) /
-                   size_original
+            << size_original /
+                   static_cast<double>((TOKEN_CODED_LEN * coded) +
+                                       (TOKEN_UNCODED_LEN * uncoded))
             << std::endl;
+  std::cout << "Saved: "
+            << (size_original - total_size) / static_cast<double>(size_original)
+            << "%" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -250,7 +250,6 @@ int main(int argc, char* argv[]) {
     print_final_stats(i);
   } else {
     Image i = Image(args.get_input_file(), args.get_output_file());
-    i.create_blocks_decode();
   }
 
   return 0;

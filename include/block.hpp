@@ -10,7 +10,11 @@
 
 class Block {
   public:
+  // Constructor for encoding
   Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height);
+
+  // Constructor for decoding
+  Block(uint16_t width, uint16_t height, SerializationStrategy strategy);
 
   void serialize_all_strategies();
 

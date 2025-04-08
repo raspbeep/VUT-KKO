@@ -84,11 +84,15 @@ bool write_blocks_to_stream(const std::string& filename, uint16_t width,
                sizeof(offset_length));
     file.write(reinterpret_cast<const char*>(&length_bits),
                sizeof(length_bits));
+    file.write(reinterpret_cast<const char*>(&block_size), sizeof(block_size));
 
     if (!file.good())
       throw std::runtime_error("Failed to write header.");
 
     for (const auto& block : blocks) {
+            // write strategy as 2 bits
+      write_bits_to_file(file, block.m_picked_strategy, 2);
+
       // Write tokens with bit packing using functional helpers
       for (const auto& token : block.m_tokens[block.m_picked_strategy]) {
         // Write coded flag (1 bit)

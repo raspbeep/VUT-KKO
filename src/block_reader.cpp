@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 
+#include "block.hpp"
 #include "token.hpp"
 
 // Internal state for bit reading
@@ -10,13 +11,13 @@ static int reader_bit_position = 8;  // Start as if buffer is empty
 static bool reader_eof = false;
 
 // Resets the internal state of the bit reader
-void resetBitReaderState() {
+void reset_bit_reader_state() {
   reader_buffer = 0;
   reader_bit_position = 8;
   reader_eof = false;
 }
 
-bool readBitFromFile(std::ifstream& file, bool& bitValue) {
+bool read_bit_from_file(std::ifstream& file, bool& bitValue) {
   if (reader_eof) {
     return false;
   }
@@ -40,7 +41,7 @@ bool readBitFromFile(std::ifstream& file, bool& bitValue) {
   return true;  // Bit read successfully
 }
 
-bool readBitsFromFile(std::ifstream& file, int numBits, uint32_t& value) {
+bool read_bits_from_file(std::ifstream& file, int numBits, uint32_t& value) {
   if (numBits < 0 || numBits > 32) {
     throw std::out_of_range("Number of bits must be between 0 and 32.");
   }
@@ -50,7 +51,7 @@ bool readBitsFromFile(std::ifstream& file, int numBits, uint32_t& value) {
   value = 0;
   for (int i = 0; i < numBits; i++) {
     bool current_bit;
-    if (!readBitFromFile(file, current_bit)) {
+    if (!read_bit_from_file(file, current_bit)) {
       return false;
     }
     value = (value << 1) | (current_bit ? 1 : 0);
@@ -59,21 +60,21 @@ bool readBitsFromFile(std::ifstream& file, int numBits, uint32_t& value) {
 }
 
 // Function to read tokens from binary file with bit unpacking
-bool readTokensFromFileFunctional(
-    const std::string& filename, uint16_t& width, uint16_t& height,
-    uint16_t& offset_length, uint16_t& length_bits,
-    std::vector<token_t>& tokens) {  // Pass tokens by ref
-  tokens.clear();                    // Clear output vector
+bool read_blocks_from_file(const std::string& filename, uint16_t& width,
+                           uint16_t& height, uint16_t& offset_length,
+                           uint16_t& length_bits, std::vector<Block>& blocks) {
+  blocks.clear();
   std::ifstream file(filename, std::ios::binary);
 
   if (!file) {
     std::cerr << "Error opening file for reading: " << filename << std::endl;
-    resetBitReaderState();  // Reset state even if file open fails
+    reset_bit_reader_state();
     return false;
   }
 
-  // Reset static reader state before starting
-  resetBitReaderState();
+  reset_bit_reader_state();
+
+  uint16_t dec_block_size;
 
   try {
     // Read header (not bit-packed)
@@ -89,78 +90,111 @@ bool readTokensFromFileFunctional(
     file.read(reinterpret_cast<char*>(&length_bits), sizeof(length_bits));
     if (!file.good())
       throw std::runtime_error("Failed or incomplete read for length_bits.");
+    file.read(reinterpret_cast<char*>(&dec_block_size), sizeof(dec_block_size));
+    if (!file.good())
+      throw std::runtime_error("Failed or incomplete read for dec_block_size.");
 
-    // Basic validation after header read
-    if (offset_length > 16 || length_bits > 16) {
-      throw std::runtime_error(
-          "Header indicates offset/length bit size too large for uint16_t.");
-    }
-    if (offset_length == 0 || length_bits == 0) {
-      // Allow 0 maybe? Depends on spec. Let's assume > 0 needed for coded
-      // tokens. Consider adding a check later if needed.
-    }
+    // TODO: fix this so it does make sense (should be > or < then max value
+    // that can be stored in uint16_t)
+    // // Basic validation after header read
+    // if (offset_length > 16 || length_bits > 16) {
+    //   throw std::runtime_error(
+    //       "Header indicates offset/length bit size too large for uint16_t.");
+    // }
+    // if (offset_length == 0 || length_bits == 0) {
+    //   // Allow 0 maybe? Depends on spec. Let's assume > 0 needed for coded
+    //   // tokens. Consider adding a check later if needed.
+    // }
 
-    // Read tokens with bit unpacking using functional helpers
-    while (true) {
-      token_t token;
-      bool flag_bit;
+    uint16_t n_row_blocks = (height + block_size - 1) / block_size;
+    uint16_t n_col_blocks = (width + block_size - 1) / block_size;
 
-      // Read coded flag (1 bit)
-      if (!readBitFromFile(file, flag_bit)) {
-        // EOF hit exactly when trying to read the next token's flag. This is a
-        // clean exit.
-        break;
+    for (size_t row = 0; row < n_row_blocks; row++) {
+      for (size_t col = 0; col < n_col_blocks; col++) {
+        uint16_t block_width =
+            std::min<uint16_t>(block_size, width - col * block_size);
+        uint16_t block_height =
+            std::min<uint16_t>(block_size, height - row * block_size);
+
+        // read the strategy from the file
+        uint32_t strategy = DEFAULT;
+        read_bits_from_file(file, 2, strategy);
+
+        if (strategy >= N_STRATEGIES) {
+          std::cerr << "Error: Invalid strategy value read from file: "
+                    << strategy << std::endl;
+          reset_bit_reader_state();
+          return false;
+        }
+        // create a new block and push it to the blocks vector
+        Block block(block_width, block_height,
+                    static_cast<SerializationStrategy>(strategy));
+
+        // counter for the number of tokens read
+        uint16_t total_decoded = 0;
+        while (total_decoded != dec_block_size * dec_block_size) {
+          // read tokens for the block
+          token_t token;
+          bool flag_bit;
+          // Read coded flag (1 bit)
+          if (!read_bit_from_file(file, flag_bit)) {
+            // EOF hit exactly when trying to read the next token's flag. This
+            // is a clean exit.
+            break;
+          }
+          token.coded = flag_bit;
+
+          // Read token data
+          if (token.coded) {
+            uint32_t temp_offset, temp_length;
+            // Coded token: read offset and length
+            if (!read_bits_from_file(file, offset_length, temp_offset)) {
+              // EOF hit while reading offset bits. Incomplete token.
+              std::cerr << "Warning: EOF encountered while reading offset for "
+                           "coded token."
+                        << std::endl;
+              break;
+            }
+            token.data.offset = static_cast<uint16_t>(temp_offset);
+
+            if (!read_bits_from_file(file, length_bits, temp_length)) {
+              // EOF hit while reading length bits. Incomplete token.
+              std::cerr << "Warning: EOF encountered while reading length for "
+                           "coded token."
+                        << std::endl;
+              break;
+            }
+            token.data.length = static_cast<uint16_t>(temp_length);
+            total_decoded += token.data.length + MIN_CODED_LEN;
+          } else {
+            uint32_t temp_value;
+            // Uncoded token: read ASCII value (8 bits)
+            if (!read_bits_from_file(file, 8, temp_value)) {
+              // EOF hit while reading value bits. Incomplete token.
+              std::cerr << "Warning: EOF encountered while reading value for "
+                           "uncoded token."
+                        << std::endl;
+              break;
+            }
+            token.data.value = static_cast<uint8_t>(temp_value);
+            total_decoded++;
+          }
+
+          // If we successfully read all parts of the token, add it
+          block.m_tokens[strategy].push_back(token);
+        }
+        blocks.push_back(block);
       }
-      token.coded = flag_bit;
-
-      // Read token data
-      if (token.coded) {
-        uint32_t temp_offset, temp_length;
-        // Coded token: read offset and length
-        if (!readBitsFromFile(file, offset_length, temp_offset)) {
-          // EOF hit while reading offset bits. Incomplete token.
-          std::cerr << "Warning: EOF encountered while reading offset for "
-                       "coded token."
-                    << std::endl;
-          break;
-        }
-        token.data.offset = static_cast<uint16_t>(temp_offset);
-
-        if (!readBitsFromFile(file, length_bits, temp_length)) {
-          // EOF hit while reading length bits. Incomplete token.
-          std::cerr << "Warning: EOF encountered while reading length for "
-                       "coded token."
-                    << std::endl;
-          break;
-        }
-        token.data.length = static_cast<uint16_t>(temp_length);
-
-      } else {
-        uint32_t temp_value;
-        // Uncoded token: read ASCII value (8 bits)
-        if (!readBitsFromFile(file, 8, temp_value)) {
-          // EOF hit while reading value bits. Incomplete token.
-          std::cerr << "Warning: EOF encountered while reading value for "
-                       "uncoded token."
-                    << std::endl;
-          break;
-        }
-        token.data.value = static_cast<uint8_t>(temp_value);
-      }
-
-      // If we successfully read all parts of the token, add it
-      tokens.push_back(token);
     }
-
   } catch (const std::exception& e) {
     std::cerr << "Error during file reading: " << e.what() << std::endl;
-    resetBitReaderState();  // Reset state on error
+    reset_bit_reader_state();  // Reset state on error
     file.close();
     return false;
   }
 
   // Reset state after successful read or normal EOF break
-  resetBitReaderState();
+  reset_bit_reader_state();
   file.close();
   // Check if file close failed? Optional.
 

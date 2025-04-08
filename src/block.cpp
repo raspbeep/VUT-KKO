@@ -16,6 +16,10 @@ Block::Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height)
   m_strategy_results.fill({0, 0});
 }
 
+Block::Block(uint16_t width, uint16_t height, SerializationStrategy strategy)
+    : m_width(width), m_height(height), m_picked_strategy(strategy) {
+}
+
 void Block::serialize_all_strategies() {
   serialize(HORIZONTAL);
   serialize(VERTICAL);
@@ -225,9 +229,12 @@ void Block::compare_encoded_decoded() {
     std::cout << "Decoded data does not match original data." << std::endl;
     throw std::runtime_error(
         "Error: Decoded data does not match original data.");
-  } else {
+  }
+#if DEBUG_PRINT
+  else {
     std::cout << "Decoded data matches original data." << std::endl;
   }
+#endif
 }
 
 std::vector<uint8_t>& Block::get_data() {
