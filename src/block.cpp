@@ -87,7 +87,7 @@ void Block::decode_using_strategy(SerializationStrategy strategy) {
   if (strategy == DEFAULT) {
     strategy = m_picked_strategy;
   }
-  auto tokens = m_tokens[strategy];
+  auto& tokens = m_tokens[strategy];
   uint64_t position = 0;
   for (size_t i = 0; i < tokens.size(); i++) {
     token_t token = tokens[i];
@@ -235,6 +235,22 @@ void Block::compare_encoded_decoded() {
     std::cout << "Decoded data matches original data." << std::endl;
   }
 #endif
+}
+
+void Block::print_tokens() {
+  std::cout << "Tokens for strategy: " << m_picked_strategy << std::endl;
+  std::cout << "------------------------------" << std::endl;
+  std::cout << "Total tokens: " << m_tokens[m_picked_strategy].size()
+            << std::endl;
+  for (auto& token : m_tokens[m_picked_strategy]) {
+    if (token.coded) {
+      std::cout << "<1, " << static_cast<int>(token.data.offset) << ", "
+                << static_cast<int>(token.data.length) << ">" << std::endl;
+    } else {
+      std::cout << "<0, " << static_cast<int>(token.data.value) << ">"
+                << std::endl;
+    }
+  }
 }
 
 std::vector<uint8_t>& Block::get_data() {

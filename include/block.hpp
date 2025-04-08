@@ -34,6 +34,8 @@ class Block {
   // place to check if the original data matches the decoded
   void compare_encoded_decoded();
 
+  void print_tokens();
+
   std::vector<uint8_t>& get_data();
 
   public:

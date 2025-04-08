@@ -8,7 +8,7 @@
 #define DEBUG_PRINT 0
 #define DEBUG_COMP_ENC_UNENC 1
 
-#define SEARCH_BUF_SIZE 32
+#define SEARCH_BUF_SIZE 31
 
 // minimum encode length
 #define MIN_CODED_LEN 3

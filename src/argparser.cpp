@@ -44,11 +44,11 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
 
   try {
     program.parse_args(argc, argv);
-    if (decompress_mode && program.is_used("-w")) {
-      throw std::runtime_error(
-          "Error: Missing required argument '-w' for compression mode.");
-    }
     if (compress_mode && !program.is_used("-w")) {
+      throw std::runtime_error(
+          "Error: Missing required argument '-w' for decompression mode.");
+    }
+    if (decompress_mode && program.is_used("-w")) {
       std::cout << "Warning: Decompress mode is enabled, but width is "
                    "specified. Width "
                    "will be ignored."

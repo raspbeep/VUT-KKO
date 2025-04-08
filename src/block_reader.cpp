@@ -74,25 +74,21 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
 
   reset_bit_reader_state();
 
-  uint16_t dec_block_size;
+  uint32_t dec_block_size;
+  bool adaptive;
 
   try {
     // Read header (not bit-packed)
     file.read(reinterpret_cast<char*>(&width), sizeof(width));
-    if (!file.good())
-      throw std::runtime_error("Failed or incomplete read for width.");
     file.read(reinterpret_cast<char*>(&height), sizeof(height));
-    if (!file.good())
-      throw std::runtime_error("Failed or incomplete read for height.");
     file.read(reinterpret_cast<char*>(&offset_length), sizeof(offset_length));
-    if (!file.good())
-      throw std::runtime_error("Failed or incomplete read for offset_length.");
     file.read(reinterpret_cast<char*>(&length_bits), sizeof(length_bits));
-    if (!file.good())
-      throw std::runtime_error("Failed or incomplete read for length_bits.");
-    file.read(reinterpret_cast<char*>(&dec_block_size), sizeof(dec_block_size));
-    if (!file.good())
-      throw std::runtime_error("Failed or incomplete read for dec_block_size.");
+    read_bit_from_file(file, adaptive);
+    if (adaptive) {
+      // file.read(reinterpret_cast<char*>(&dec_block_size),
+      //           sizeof(dec_block_size));
+      read_bits_from_file(file, 16, dec_block_size);
+    }
 
     // TODO: fix this so it does make sense (should be > or < then max value
     // that can be stored in uint16_t)
@@ -106,15 +102,19 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
     //   // tokens. Consider adding a check later if needed.
     // }
 
-    uint16_t n_row_blocks = (height + block_size - 1) / block_size;
-    uint16_t n_col_blocks = (width + block_size - 1) / block_size;
+    uint16_t n_row_blocks =
+        adaptive ? (height + block_size - 1) / block_size : 1;
+    uint16_t n_col_blocks =
+        adaptive ? (width + block_size - 1) / block_size : 1;
 
     for (size_t row = 0; row < n_row_blocks; row++) {
       for (size_t col = 0; col < n_col_blocks; col++) {
         uint16_t block_width =
-            std::min<uint16_t>(block_size, width - col * block_size);
+            adaptive ? std::min<uint16_t>(block_size, width - col * block_size)
+                     : width;
         uint16_t block_height =
-            std::min<uint16_t>(block_size, height - row * block_size);
+            adaptive ? std::min<uint16_t>(block_size, height - row * block_size)
+                     : height;
 
         // read the strategy from the file
         uint32_t strategy = DEFAULT;

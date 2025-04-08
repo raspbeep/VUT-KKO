@@ -64,7 +64,7 @@ void flush_bits_to_file(std::ofstream& file) {
 // Function to write tokens to binary file with bit packing
 bool write_blocks_to_stream(const std::string& filename, uint16_t width,
                             uint16_t height, uint16_t offset_length,
-                            uint16_t length_bits,
+                            uint16_t length_bits, bool adaptive,
                             const std::vector<Block>& blocks) {
   std::ofstream file(filename, std::ios::binary);
 
@@ -73,24 +73,25 @@ bool write_blocks_to_stream(const std::string& filename, uint16_t width,
     return false;
   }
 
-  // Reset static writer state before starting
   reset_bit_writer_state();
 
   try {
-    // Write header (not bit-packed)
     file.write(reinterpret_cast<const char*>(&width), sizeof(width));
     file.write(reinterpret_cast<const char*>(&height), sizeof(height));
     file.write(reinterpret_cast<const char*>(&offset_length),
                sizeof(offset_length));
     file.write(reinterpret_cast<const char*>(&length_bits),
                sizeof(length_bits));
-    file.write(reinterpret_cast<const char*>(&block_size), sizeof(block_size));
+    write_bit_to_file(file, adaptive);
+    if (adaptive) {
+      write_bits_to_file(file, block_size, 16);
+    }
 
     if (!file.good())
       throw std::runtime_error("Failed to write header.");
 
     for (const auto& block : blocks) {
-            // write strategy as 2 bits
+      // write strategy as 2 bits
       write_bits_to_file(file, block.m_picked_strategy, 2);
 
       // Write tokens with bit packing using functional helpers

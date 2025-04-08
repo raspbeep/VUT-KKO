@@ -37,11 +37,6 @@ class Image {
     // read the input file and store it in m_data vector
 
     read_dec_input_file();
-
-    if (m_data.size() != static_cast<size_t>(m_width) * m_width) {
-      throw std::runtime_error(
-          "Error: Data size does not match image dimensions.");
-    }
   }
 
   ~Image() {
@@ -93,6 +88,22 @@ class Image {
     }
   }
 
+  void write_dec_output_file() {
+    // write the decoded data to the output file
+    std::ofstream o_file_handle(m_output_filename, std::ios::binary);
+    if (!o_file_handle) {
+      throw std::runtime_error("Error: Unable to open output file: " +
+                               m_output_filename);
+    }
+    // iterate over all blocks, serialize, encode and write them
+    for (size_t i = 0; i < m_data.size(); i++) {
+      o_file_handle.put(m_data[i]);
+    }
+    o_file_handle.close();
+    std::cout << "Decoded data written to: " << m_output_filename << std::endl;
+    std::cout << "Written " << m_data.size() << " bytes." << std::endl;
+  }
+
   void create_blocks() {
     if (!m_adaptive) {
       create_single_block();
@@ -129,10 +140,21 @@ class Image {
       block.decode_using_strategy(DEFAULT);
       block.compare_encoded_decoded();
 #endif
+      block.print_tokens();
     }
 
     write_blocks_to_stream(m_output_filename, m_width, m_width, OFFSET_BITS,
-                           LENGTH_BITS, m_blocks);
+                           LENGTH_BITS, m_adaptive, m_blocks);
+  }
+
+  void decode_blocks() {
+    for (size_t i = 0; i < m_blocks.size(); i++) {
+      Block& block = m_blocks[i];
+      block.decode_using_strategy(DEFAULT);
+      m_data.insert(m_data.end(), block.m_decoded_data.begin(),
+                    block.m_decoded_data.end());
+      block.print_tokens();
+    }
   }
 
   uint16_t get_width() const {
@@ -250,6 +272,8 @@ int main(int argc, char* argv[]) {
     print_final_stats(i);
   } else {
     Image i = Image(args.get_input_file(), args.get_output_file());
+    i.decode_blocks();
+    i.write_dec_output_file();
   }
 
   return 0;

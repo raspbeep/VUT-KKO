@@ -37,10 +37,9 @@
         "-i",
         "${workspaceFolder}/benchmark/df1h.raw",
         "-o",
-        "dsa",
+        "tmp/cb.enc",
         "-w",
-        "512",
-        "-a"
+        "512"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
@@ -62,7 +61,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/lz_codec",
-      "args": ["-d", "-i", "${workspaceFolder}/dsa", "-o", "dsa.out", "-a"],
+      "args": ["-d", "-i", "${workspaceFolder}/dsa", "-o", "out", "-a"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
