@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "common.hpp"
 #include "hashtable.hpp"
 
 Block::Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height)
@@ -11,7 +12,7 @@ Block::Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height)
   for (size_t i = 0; i < N_STRATEGIES; i++) {
     m_data[i].reserve(width * height);
   }
-  m_data[0].assign(data.begin(), data.end());
+  m_data[HORIZONTAL].assign(data.begin(), data.end());
   m_strategy_results.fill({0, 0});
 }
 
@@ -93,42 +94,42 @@ void Block::decode_using_strategy(SerializationStrategy strategy) {
       for (uint16_t j = 0; j < length; j++) {
         m_decoded_data.push_back(m_decoded_data[token_position + j]);
       }
-#if 0
-          std::cout << "decoded: " << static_cast<int>(token.data.offset) << " "
-                    << static_cast<int>(token.data.length) << std::endl;
-          std::cout << "decoded: ";
-          for (uint16_t j = token_position; j < token_position + length; j++) {
-            std::cout << static_cast<int>(m_decoded_data[j]) << " ";
-          }
-          std::cout << "(";
-          for (uint16_t j = 0; j < length; j++) {
-            std::cout << static_cast<char>(m_decoded_data[j]);
-          }
-          std::cout << ")" << std::endl;
+#if DEBUG_PRINT
+      std::cout << "decoded: " << static_cast<int>(token.data.offset) << " "
+                << static_cast<int>(token.data.length) << std::endl;
+      std::cout << "decoded: ";
+      for (uint16_t j = token_position; j < token_position + length; j++) {
+        std::cout << static_cast<int>(m_decoded_data[j]) << " ";
+      }
+      std::cout << "(";
+      for (uint16_t j = 0; j < length; j++) {
+        std::cout << static_cast<char>(m_decoded_data[j]);
+      }
+      std::cout << ")" << std::endl;
 #endif
       position += length;
 
     } else {
       // uncoded token
       m_decoded_data.push_back(token.data.value);
-#if 0
-          std::cout << "decoded: " << static_cast<int>(token.data.value) << "("
-                    << static_cast<char>(token.data.value) << ")" << std::endl;
+#if DEBUG_PRINT
+      std::cout << "decoded: " << static_cast<int>(token.data.value) << "("
+                << static_cast<char>(token.data.value) << ")" << std::endl;
 #endif
       position++;
     }
   }
-#if 0
-      std::cout << "decoded data: ";
-      for (size_t i = 0; i < m_decoded_data.size(); i++) {
-        std::cout << static_cast<int>(m_decoded_data[i]) << " ";
-      }
-      std::cout << std::endl;
-      std::cout << "decoded data: \t";
-      for (size_t i = 0; i < m_decoded_data.size(); i++) {
-        std::cout << static_cast<char>(m_decoded_data[i]);
-      }
-      std::cout << std::endl;
+#if DEBUG_PRINT
+  std::cout << "decoded data: ";
+  for (size_t i = 0; i < m_decoded_data.size(); i++) {
+    std::cout << static_cast<int>(m_decoded_data[i]) << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "decoded data: \t";
+  for (size_t i = 0; i < m_decoded_data.size(); i++) {
+    std::cout << static_cast<char>(m_decoded_data[i]);
+  }
+  std::cout << std::endl;
 #endif
 }
 

@@ -3,32 +3,9 @@
   // Hover to view descriptions of existing attributes.
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   //   "version": "0.2.0",
-  //   "configurations": [
-  //     {
-  //       "name": "(lldb) Launch",
-  //       "type": "cppdbg",
-  //       "request": "launch",
-  //       "program": "${workspaceFolder}/build/lz_codec",
-  //       "args": [
-  //         "-d",
-  //         "-i",
-  //         "${workspaceFolder}/benchmark/cb.raw",
-  //         "-o",
-  //         "dsa",
-  //         "-w",
-  //         "512",
-  //         "-a"
-  //       ],
-  //       "stopAtEntry": false,
-  //       "cwd": "${fileDirname}",
-  //       "environment": [],
-  //       "externalConsole": false,
-  //       "MIMode": "lldb"
-  //     }
-  //   ]
   "configurations": [
     {
-      "name": "(gdb) Launch",
+      "name": "(lldb) Launch",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/lz_codec",
@@ -43,19 +20,42 @@
         "-a"
       ],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
+      "cwd": "${fileDirname}",
       "environment": [],
       "externalConsole": false,
-      "MIMode": "gdb",
-      "setupCommands": [
-        {
-          // Display content in STL containers pretty
-          "description": "Enable pretty-printing for gdb",
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
-        }
-      ],
-      "preLaunchTask": "make"
+      "MIMode": "lldb"
     }
   ]
+  // "configurations": [
+  //   {
+  //     "name": "(gdb) Launch",
+  //     "type": "cppdbg",
+  //     "request": "launch",
+  //     "program": "${workspaceFolder}/build/lz_codec",
+  //     "args": [
+  //       "-c",
+  //       "-i",
+  //       "${workspaceFolder}/benchmark/df1h.raw",
+  //       "-o",
+  //       "dsa",
+  //       "-w",
+  //       "512",
+  //       "-a"
+  //     ],
+  //     "stopAtEntry": false,
+  //     "cwd": "${workspaceFolder}",
+  //     "environment": [],
+  //     "externalConsole": false,
+  //     "MIMode": "gdb",
+  //     "setupCommands": [
+  //       {
+  //         // Display content in STL containers pretty
+  //         "description": "Enable pretty-printing for gdb",
+  //         "text": "-enable-pretty-printing",
+  //         "ignoreFailures": true
+  //       }
+  //     ],
+  //     "preLaunchTask": "make"
+  //   }
+  // ]
 }

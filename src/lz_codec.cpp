@@ -7,6 +7,8 @@
 
 #include "argparser.hpp"
 #include "block.hpp"
+#include "block_reader.hpp"
+#include "block_writer.hpp"
 #include "bst.hpp"
 #include "common.hpp"
 #include "hashtable.hpp"
@@ -122,7 +124,7 @@ class Image {
       } else {
         block.encode_using_strategy(DEFAULT);
       }
-#if DEBUG_PRINT
+#if 1
       std::cout << "Block #" << i
                 << " picked strategy: " << block.m_picked_strategy << std::endl;
 #endif
@@ -130,14 +132,10 @@ class Image {
       block.decode_using_strategy(DEFAULT);
       block.compare_encoded_decoded();
 #endif
-      // append block tokens to the tokens vector
-      tokens.insert(tokens.end(),
-                    block.m_tokens[block.m_picked_strategy].begin(),
-                    block.m_tokens[block.m_picked_strategy].end());
     }
 
     write_blocks_to_stream(m_output_filename, m_width, m_width, OFFSET_BITS,
-                           LENGTH_BITS, tokens);
+                           LENGTH_BITS, m_blocks);
   }
 
   uint16_t get_width() const {
@@ -214,7 +212,6 @@ class Image {
 void print_final_stats(Image& img) {
   size_t coded = 0;
   size_t uncoded = 0;
-  size_t n_blocks = img.m_blocks.size();
   for (auto& block : img.m_blocks) {
     auto strategy = block.m_picked_strategy;
     for (auto& token : block.m_tokens[strategy]) {
