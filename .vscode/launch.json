@@ -61,7 +61,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/lz_codec",
-      "args": ["-d", "-i", "${workspaceFolder}/dsa", "-o", "out", "-a"],
+      "args": ["-d", "-i", "${workspaceFolder}/tmp/cb.enc", "-o", "out"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

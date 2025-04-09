@@ -42,6 +42,12 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       .help("Output file")
       .metavar("WIDTH");
 
+  // program.add_argument("--offset")
+  //     .scan<'i', uint16_t>()
+  //     .store_into(offset)
+  //     .help("Output file")
+  //     .metavar("WIDTH");
+
   try {
     program.parse_args(argc, argv);
     if (compress_mode && !program.is_used("-w")) {

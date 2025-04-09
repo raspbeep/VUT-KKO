@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <math.h>
 
 #include <fstream>
@@ -14,10 +15,12 @@
 #include "hashtable.hpp"
 #include "token.hpp"
 
-uint16_t SEARCH_BUF_SIZE = 35;
 // coded token parameters
-uint16_t OFFSET_BITS = constexpr_bits_needed(SEARCH_BUF_SIZE);
-uint16_t LENGTH_BITS = 10;
+uint16_t OFFSET_BITS = 10;
+uint16_t LENGTH_BITS = 8;
+
+// max number expressible with the OFFSET_LENGTH bits
+uint16_t SEARCH_BUF_SIZE = (1 << OFFSET_BITS) - 1;
 
 // designates the max length in longest prefix searching
 // finds the maximum value we can represent with the given number of bits
@@ -152,7 +155,7 @@ class Image {
       block.decode_using_strategy(DEFAULT);
       block.compare_encoded_decoded();
 #endif
-#if DEBUG_PRINT
+#if DEBUG_PRINT_TOKENS
       block.print_tokens();
 #endif
     }
@@ -165,7 +168,7 @@ class Image {
     for (size_t i = 0; i < m_blocks.size(); i++) {
       Block& block = m_blocks[i];
       block.decode_using_strategy(DEFAULT);
-#if DEBUG_PRINT
+#if DEBUG_PRINT_TOKENS
       block.print_tokens();
 #endif
       if (m_adaptive) {
@@ -392,17 +395,18 @@ void print_final_stats(Image& img) {
     }
   }
 
-  size_t total_size =
-      (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded) + (8 * 8);
+  size_t total_size = (TOKEN_CODED_LEN * coded) +
+                      (TOKEN_UNCODED_LEN * uncoded) + (4 * 16) + 1 + 1 +
+                      (img.m_blocks.size()) * 16;
 
   size_t size_original = img.get_width() * img.get_width() * 8;
   std::cout << "Original data size: " << size_original << "b" << std::endl;
-  std::cout << "Coded tokens: " << coded << "(" << TOKEN_CODED_LEN * coded
+  std::cout << "Coded tokens: " << coded << " (" << TOKEN_CODED_LEN * coded
             << "b)" << std::endl;
-  std::cout << "Uncoded tokens: " << uncoded << "("
+  std::cout << "Uncoded tokens: " << uncoded << " ("
             << TOKEN_UNCODED_LEN * uncoded << "b)" << std::endl;
-  std::cout << "Total size (including block headers): " << total_size << "b\t"
-            << total_size / 8 << "B" << std::endl;
+  std::cout << "Total size (including block headers): " << total_size << "b ("
+            << total_size / 8 << "B)" << std::endl;
   std::cout << "Compression ratio: "
             << size_original /
                    static_cast<double>((TOKEN_CODED_LEN * coded) +
@@ -414,6 +418,9 @@ int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
   std::cout << "max length: " << MAX_CODED_LEN << std::endl;
   std::cout << "offset bits: " << OFFSET_BITS << std::endl;
+
+  assert(OFFSET_BITS <= 15);
+  assert(LENGTH_BITS <= 15);
 
   if (args.is_compress_mode()) {
     Image i =

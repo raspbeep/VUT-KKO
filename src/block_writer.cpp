@@ -93,7 +93,7 @@ bool write_blocks_to_stream(const std::string& filename, uint16_t width,
 
     for (const auto& block : blocks) {
       // write strategy as 2 bits
-      write_bits_to_file(file, block.m_picked_strategy, 1);
+      write_bits_to_file(file, block.m_picked_strategy, 2);
 
       // Write tokens with bit packing using functional helpers
       for (const auto& token : block.m_tokens[block.m_picked_strategy]) {

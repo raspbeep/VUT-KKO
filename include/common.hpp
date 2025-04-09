@@ -8,6 +8,7 @@
 #define DEBUG_DUMMY_SEQ 0
 #define DEBUG_PRINT 0
 #define DEBUG_COMP_ENC_UNENC 0
+#define DEBUG_PRINT_TOKENS 0
 
 // minimum encode length
 #define MIN_CODED_LEN 3

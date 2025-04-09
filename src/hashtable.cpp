@@ -88,36 +88,29 @@ search_result HashTable::search(std::vector<uint8_t>& data,
   // if no match was found, return the default result (found = false)
 }
 
-// finds the longest prefix in the input values
-// returns the length of the longest prefix (up to MAX_CODED_LEN bytes)
 uint16_t HashTable::match_length(std::vector<uint8_t>& data,
                                  uint64_t current_pos, HashNode* current) {
-  uint16_t match_length = 0;
-  for (uint16_t i = 0;
-       i < MAX_CODED_LEN && current_pos + i + MIN_CODED_LEN < data.size();
-       ++i) {
-    auto cmp1_index = current_pos + i + MIN_CODED_LEN;
-    auto cmp2_index = current->position + i + MIN_CODED_LEN;
+  uint16_t effective_length_bits = std::min<uint16_t>(LENGTH_BITS, 16);
+  uint16_t max_additional_length = (1U << effective_length_bits) - 1;
+
+  uint16_t current_match_length = 0;
+  for (uint16_t i = 0; i < max_additional_length; ++i) {
+    auto cmp1_index = current_pos + MIN_CODED_LEN + i;
+    auto cmp2_index = current->position + MIN_CODED_LEN + i;
+
     if (cmp1_index >= data.size() || cmp2_index >= data.size()) {
-      std::cout << "cmp1_index: " << cmp1_index << std::endl;
-      std::cout << "cmp2_index: " << cmp2_index << std::endl;
-      std::cout << "data.size(): " << data.size() << std::endl;
-      std::cout << "current_pos: " << current_pos << std::endl;
-      throw std::runtime_error(
-          "Error: Index out of bounds while matching prefix");
+      break;
     }
-    auto cmp1 = data[cmp1_index];
-    auto cmp2 = data[cmp2_index];
-    if (cmp1 == cmp2) {
-      match_length++;
+
+    // Compare characters
+    if (data[cmp1_index] == data[cmp2_index]) {
+      current_match_length++;
     } else {
       break;
     }
   }
-  // subtract the minimum coded length to get the actual length
-  // of the prefix because the minimum coded length is guaranteed after hash
-  // table lookup
-  return match_length;
+
+  return current_match_length;
 }
 
 void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
