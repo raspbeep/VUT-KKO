@@ -277,22 +277,30 @@ class Image {
     if (m_data.empty()) {
       return;
     }
-    uint8_t prev = m_data[0];
+    // Store the original value of the previous element
+    uint8_t prev_original = m_data[0];
     for (uint64_t i = 1; i < m_data.size(); i++) {
-      prev = m_data[i];
-      m_data[i] = static_cast<uint8_t>(m_data[i] - prev);  // delta transform
+      // Store the original value of the current element before modifying it
+      uint8_t current_original = m_data[i];
+      // Calculate delta based on the *previous* element's original value
+      m_data[i] = static_cast<uint8_t>(current_original - prev_original);
+      // Update prev_original for the next iteration
+      prev_original = current_original;
     }
   }
 
   void reverse_transform() {
-    if (m_data.empty()) {
+    if (m_data.empty() || !m_model) {
       return;
     }
-    uint8_t prev = m_data[0];
+    // prev holds the reconstructed value of the previous element
+    uint8_t prev_reconstructed = m_data[0];  // First element is unchanged
     for (uint64_t i = 1; i < m_data.size(); i++) {
-      uint8_t current = m_data[i];
-      m_data[i] = static_cast<uint8_t>(m_data[i] + prev);
-      prev = current;
+      // Reconstruct the current element: original[i] = delta[i] + original[i-1]
+      m_data[i] = static_cast<uint8_t>(m_data[i] + prev_reconstructed);
+      // Update prev_reconstructed to the *newly* reconstructed value for the
+      // next iteration
+      prev_reconstructed = m_data[i];
     }
   }
 
@@ -398,7 +406,7 @@ int main(int argc, char* argv[]) {
     Image i =
         Image(args.get_input_file(), args.get_output_file(),
               args.get_image_width(), args.is_adaptive(), args.use_model());
-    if (true) {
+    if (args.use_model()) {
       i.transform();
     }
     i.create_blocks();
@@ -408,9 +416,7 @@ int main(int argc, char* argv[]) {
     Image i = Image(args.get_input_file(), args.get_output_file());
     i.decode_blocks();
     i.compose_image();
-    if (true) {
-      i.reverse_transform();
-    }
+    i.reverse_transform();
     i.write_dec_output_file();
   }
 
