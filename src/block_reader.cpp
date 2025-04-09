@@ -57,7 +57,7 @@ bool read_bits_from_file(std::ifstream& file, int numBits, uint32_t& value) {
 }
 
 bool read_blocks_from_file(const std::string& filename, uint16_t& width,
-                           uint16_t& height, uint16_t& offset_length,
+                           uint16_t& height, uint16_t& offset_bits,
                            uint16_t& length_bits, bool& adaptive, bool& model,
                            std::vector<Block>& blocks) {
   blocks.clear();
@@ -77,7 +77,7 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
     // Read header not bit-packed for consistency
     file.read(reinterpret_cast<char*>(&width), sizeof(width));
     file.read(reinterpret_cast<char*>(&height), sizeof(height));
-    file.read(reinterpret_cast<char*>(&offset_length), sizeof(offset_length));
+    file.read(reinterpret_cast<char*>(&offset_bits), sizeof(offset_bits));
     file.read(reinterpret_cast<char*>(&length_bits), sizeof(length_bits));
 
     if (!file.good()) {
@@ -140,7 +140,7 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
 
         // read the strategy from the file
         uint32_t strategy_val = DEFAULT;  // Use a temporary uint32_t
-        if (!read_bits_from_file(file, 2, strategy_val)) {
+        if (!read_bits_from_file(file, 1, strategy_val)) {
           std::cerr << "Warning: EOF or read error encountered while reading "
                        "strategy for block ("
                     << row << "," << col << ")." << std::endl;
@@ -182,7 +182,7 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
           if (token.coded) {
             uint32_t temp_offset, temp_length;
             // Coded token: read offset and length
-            if (!read_bits_from_file(file, offset_length, temp_offset)) {
+            if (!read_bits_from_file(file, offset_bits, temp_offset)) {
               std::cerr << "Warning: EOF encountered while reading offset for "
                            "coded token in block ("
                         << row << "," << col << ")." << std::endl;

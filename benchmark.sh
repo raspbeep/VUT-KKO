@@ -3,15 +3,13 @@
 # --- Default Settings ---
 bench_filename="cb.raw"
 size=512
-adaptive_flag="" # Will be set to "-a" if -a is provided
-model_flag=""    # Will be set to "-m" if -m is provided
+adaptive_flag=""
+model_flag=""
 
-# --- Function to display usage ---
 usage() {
-  # Updated usage message
   echo "Usage: $0 [-a] [-m]"
   echo "  -a : Enable adaptive mode for lz_codec"
-  echo "  -m : Enable model mode for lz_codec (boolean flag)" # Clarified
+  echo "  -m : Enable model mode for lz_codec (boolean flag)"
   exit 1
 }
 
@@ -33,10 +31,9 @@ while getopts "am" opt; do
     # No need for the ':' case for missing arguments for -m
   esac
 done
-shift $((OPTIND-1)) # Remove parsed options from arguments
+shift $((OPTIND-1))
 
-# --- Main Script Logic ---
-make -j4
+make -B -j8
 if [ $? -ne 0 ]; then
     echo "Error: make failed!" >&2
     exit 1
@@ -47,19 +44,14 @@ mkdir tmp
 
 echo "Running benchmark..."
 echo "------------------------------------------------------"
-# Construct the command string *only* for echoing
-# Use parameter expansion ${var:+" $var"} to add a leading space only if the variable exists
 echo "./build/lz_codec -c -i benchmark/$bench_filename -o tmp/cb.enc -w $size ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
 
-# Execute the command directly, letting the shell handle arguments
-# Quote arguments that might contain spaces or special characters
-# Unset variables expand to nothing, which is what we want
 time ./build/lz_codec -c \
     -i "benchmark/$bench_filename" \
     -o "tmp/cb.enc" \
     -w "$size" \
     $adaptive_flag \
-    $model_flag # Simply include the model_flag variable
+    $model_flag
 
 compress_status=$?
 echo "------------------------------------------------------"
@@ -69,15 +61,13 @@ if [ $compress_status -ne 0 ]; then
     exit 1
 fi
 
-# Construct the command string *only* for echoing
 echo "./build/lz_codec -d -i tmp/cb.enc -o tmp/cb.dec ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
 
-# Execute the command directly
 time ./build/lz_codec -d \
     -i "tmp/cb.enc" \
     -o "tmp/cb.dec" \
     $adaptive_flag \
-    $model_flag # Simply include the model_flag variable
+    $model_flag
 
 decompress_status=$?
 echo "------------------------------------------------------"
@@ -87,11 +77,10 @@ if [ $decompress_status -ne 0 ]; then
     exit 1
 fi
 
-# --- Verification and Size ---
 echo "Original size:"
-stat -c %s "benchmark/$bench_filename" 2>/dev/null || ./size "benchmark/$bench_filename" # Try stat, fallback to ./size
+stat -c %s "benchmark/$bench_filename" 2>/dev/null || ./size "benchmark/$bench_filename"
 echo "Compressed size:"
-stat -c %s "tmp/cb.enc" 2>/dev/null || ./size "tmp/cb.enc" # Try stat, fallback to ./size
+stat -c %s "tmp/cb.enc" 2>/dev/null || ./size "tmp/cb.enc"
 
 
 if ! cmp -s "benchmark/$bench_filename" "tmp/cb.dec"; then

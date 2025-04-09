@@ -14,6 +14,20 @@
 #include "hashtable.hpp"
 #include "token.hpp"
 
+uint16_t SEARCH_BUF_SIZE = 35;
+// coded token parameters
+uint16_t OFFSET_BITS = constexpr_bits_needed(SEARCH_BUF_SIZE);
+uint16_t LENGTH_BITS = 10;
+
+// designates the max length in longest prefix searching
+// finds the maximum value we can represent with the given number of bits
+// and add the minimum coded length to optimize for value mapping
+uint16_t MAX_CODED_LEN = (1 << LENGTH_BITS) - 1 + MIN_CODED_LEN;
+
+// used only for statistics printing
+size_t TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;
+size_t TOKEN_UNCODED_LEN = 1 + 8;
+
 class Image {
   public:
   // Constructor for encoding
@@ -49,10 +63,9 @@ class Image {
   void read_dec_input_file() {
     // read the input file and store the tokens in m_tokens vector
     // store all the params from header in the class variables
-    uint16_t offset_bits;
-    uint16_t length_bits;
-    read_blocks_from_file(m_input_filename, m_width, m_width, offset_bits,
-                          length_bits, m_adaptive, m_model, m_blocks);
+
+    read_blocks_from_file(m_input_filename, m_width, m_width, OFFSET_BITS,
+                          LENGTH_BITS, m_adaptive, m_model, m_blocks);
   }
 
   void read_enc_input_file() {

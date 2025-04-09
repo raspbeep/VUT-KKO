@@ -208,7 +208,7 @@ void Block::encode_using_strategy(SerializationStrategy strategy) {
 }
 
 void Block::encode_adaptive() {
-  size_t best_encoded_size, current_strategy_result;
+  size_t best_encoded_size = 0, current_strategy_result;
   bool first = true;
   for (size_t i = HORIZONTAL; i < N_STRATEGIES; i++) {
     // delta_transform(true);

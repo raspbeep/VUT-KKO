@@ -4,20 +4,18 @@
 #include <cmath>
 #include <cstdint>
 
+// debug priting flags
 #define DEBUG_DUMMY_SEQ 0
 #define DEBUG_PRINT 0
-#define DEBUG_COMP_ENC_UNENC 1
-
-#define SEARCH_BUF_SIZE 31
+#define DEBUG_COMP_ENC_UNENC 0
 
 // minimum encode length
 #define MIN_CODED_LEN 3
 
-#define N_BITS_CODED 10
-// shift 1 to the left N_BITS_CODED times
-// -1 to get the maximum value for N_BITS_CODED bits
-// and add the minimum coded length to optimize for value mapping
-constexpr uint16_t MAX_CODED_LEN = (1 << N_BITS_CODED) - 1 + MIN_CODED_LEN;
+extern uint16_t SEARCH_BUF_SIZE;
+extern uint16_t OFFSET_BITS;
+extern uint16_t LENGTH_BITS;
+extern uint16_t MAX_CODED_LEN;
 
 constexpr uint16_t constexpr_bits_needed(uint64_t n) {
   if (n <= 1) {
@@ -33,12 +31,9 @@ constexpr uint16_t constexpr_bits_needed(uint64_t n) {
   return bits;
 }
 
-constexpr uint16_t OFFSET_BITS = constexpr_bits_needed(SEARCH_BUF_SIZE);
-constexpr uint16_t LENGTH_BITS = constexpr_bits_needed(MAX_CODED_LEN);
-
 // used only for statistics printing
-const size_t TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;
-const size_t TOKEN_UNCODED_LEN = 1 + 8;
+extern size_t TOKEN_CODED_LEN;
+extern size_t TOKEN_UNCODED_LEN;
 
 struct StrategyResult {
   size_t n_coded_tokens;
