@@ -64,7 +64,7 @@ void flush_bits_to_file(std::ofstream& file) {
 // Function to write tokens to binary file with bit packing
 bool write_blocks_to_stream(const std::string& filename, uint16_t width,
                             uint16_t height, uint16_t offset_length,
-                            uint16_t length_bits, bool adaptive,
+                            uint16_t length_bits, bool adaptive, bool model,
                             const std::vector<Block>& blocks) {
   std::ofstream file(filename, std::ios::binary);
 
@@ -82,6 +82,7 @@ bool write_blocks_to_stream(const std::string& filename, uint16_t width,
                sizeof(offset_length));
     file.write(reinterpret_cast<const char*>(&length_bits),
                sizeof(length_bits));
+    write_bit_to_file(file, model);
     write_bit_to_file(file, adaptive);
     if (adaptive) {
       write_bits_to_file(file, block_size, 16);

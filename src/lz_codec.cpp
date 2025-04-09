@@ -18,11 +18,12 @@ class Image {
   public:
   // Constructor for encoding
   Image(std::string i_filename, std::string o_filename, uint16_t width,
-        bool adaptive)
+        bool adaptive, bool model)
       : m_input_filename(i_filename),
         m_output_filename(o_filename),
         m_width(width),
-        m_adaptive(adaptive) {
+        m_adaptive(adaptive),
+        m_model(model) {
     // read the input file and store it in m_data vector
     read_enc_input_file();
     if (m_data.size() != static_cast<size_t>(m_width) * m_width) {
@@ -51,7 +52,7 @@ class Image {
     uint16_t offset_bits;
     uint16_t length_bits;
     read_blocks_from_file(m_input_filename, m_width, m_width, offset_bits,
-                          length_bits, m_adaptive, m_blocks);
+                          length_bits, m_adaptive, m_model, m_blocks);
   }
 
   void read_enc_input_file() {
@@ -144,7 +145,7 @@ class Image {
     }
 
     write_blocks_to_stream(m_output_filename, m_width, m_width, OFFSET_BITS,
-                           LENGTH_BITS, m_adaptive, m_blocks);
+                           LENGTH_BITS, m_adaptive, m_model, m_blocks);
   }
 
   void decode_blocks() {
@@ -272,6 +273,29 @@ class Image {
     return m_width;
   }
 
+  void transform() {
+    if (m_data.empty()) {
+      return;
+    }
+    uint8_t prev = m_data[0];
+    for (uint64_t i = 1; i < m_data.size(); i++) {
+      prev = m_data[i];
+      m_data[i] = static_cast<uint8_t>(m_data[i] - prev);  // delta transform
+    }
+  }
+
+  void reverse_transform() {
+    if (m_data.empty()) {
+      return;
+    }
+    uint8_t prev = m_data[0];
+    for (uint64_t i = 1; i < m_data.size(); i++) {
+      uint8_t current = m_data[i];
+      m_data[i] = static_cast<uint8_t>(m_data[i] + prev);
+      prev = current;
+    }
+  }
+
   private:
   void create_single_block() {
     // single block
@@ -329,6 +353,7 @@ class Image {
   std::ofstream o_file_handle;
   uint16_t m_width;
   bool m_adaptive;
+  bool m_model;
   std::vector<uint8_t> m_data;
   std::vector<token_t> m_tokens;
 
@@ -370,8 +395,12 @@ int main(int argc, char* argv[]) {
   std::cout << "offset bits: " << OFFSET_BITS << std::endl;
 
   if (args.is_compress_mode()) {
-    Image i = Image(args.get_input_file(), args.get_output_file(),
-                    args.get_image_width(), args.is_adaptive());
+    Image i =
+        Image(args.get_input_file(), args.get_output_file(),
+              args.get_image_width(), args.is_adaptive(), args.use_model());
+    if (true) {
+      i.transform();
+    }
     i.create_blocks();
     i.encode_blocks();
     print_final_stats(i);
@@ -379,6 +408,9 @@ int main(int argc, char* argv[]) {
     Image i = Image(args.get_input_file(), args.get_output_file());
     i.decode_blocks();
     i.compose_image();
+    if (true) {
+      i.reverse_transform();
+    }
     i.write_dec_output_file();
   }
 
