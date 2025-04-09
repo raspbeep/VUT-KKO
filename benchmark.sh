@@ -4,25 +4,33 @@
 bench_filename="cb.raw"
 size=512
 adaptive_flag="" # Will be set to "-a" if -a is provided
-model_flag=""    # Will be set to "-m <model>" if -m is provided
+model_flag=""    # Will be set to "-m" if -m is provided
 
 # --- Function to display usage ---
 usage() {
-  echo "Usage: $0 [-a] [-m <model_name>]"
+  # Updated usage message
+  echo "Usage: $0 [-a] [-m]"
   echo "  -a : Enable adaptive mode for lz_codec"
-  echo "  -m : Specify the model for lz_codec"
+  echo "  -m : Enable model mode for lz_codec (boolean flag)" # Clarified
   exit 1
 }
 
 # --- Parse Command-Line Options ---
-while getopts "am:" opt; do
+# Remove the colon after 'm' - it does not expect an argument
+while getopts "am" opt; do
   case $opt in
     a)
       adaptive_flag="-a"
       ;;
     m)
+      # Just set the flag, no OPTARG involved
       model_flag="-m"
       ;;
+    \?) # Handle invalid options
+      echo "Invalid option: -$OPTARG" >&2
+      usage
+      ;;
+    # No need for the ':' case for missing arguments for -m
   esac
 done
 shift $((OPTIND-1)) # Remove parsed options from arguments
@@ -39,11 +47,20 @@ mkdir tmp
 
 echo "Running benchmark..."
 echo "------------------------------------------------------"
-# Construct the command string for clarity in echo
-codec_cmd_compress="./build/lz_codec -c -i benchmark/$bench_filename -o tmp/cb.enc -w $size $adaptive_flag $model_flag"
-echo "$codec_cmd_compress"
-# Execute the command
-time $codec_cmd_compress
+# Construct the command string *only* for echoing
+# Use parameter expansion ${var:+" $var"} to add a leading space only if the variable exists
+echo "./build/lz_codec -c -i benchmark/$bench_filename -o tmp/cb.enc -w $size ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
+
+# Execute the command directly, letting the shell handle arguments
+# Quote arguments that might contain spaces or special characters
+# Unset variables expand to nothing, which is what we want
+time ./build/lz_codec -c \
+    -i "benchmark/$bench_filename" \
+    -o "tmp/cb.enc" \
+    -w "$size" \
+    $adaptive_flag \
+    $model_flag # Simply include the model_flag variable
+
 compress_status=$?
 echo "------------------------------------------------------"
 
@@ -52,10 +69,16 @@ if [ $compress_status -ne 0 ]; then
     exit 1
 fi
 
-codec_cmd_decompress="./build/lz_codec -d -i tmp/cb.enc -o tmp/cb.dec $adaptive_flag $model_flag"
-echo "$codec_cmd_decompress"
-# Execute the command
-time $codec_cmd_decompress
+# Construct the command string *only* for echoing
+echo "./build/lz_codec -d -i tmp/cb.enc -o tmp/cb.dec ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
+
+# Execute the command directly
+time ./build/lz_codec -d \
+    -i "tmp/cb.enc" \
+    -o "tmp/cb.dec" \
+    $adaptive_flag \
+    $model_flag # Simply include the model_flag variable
+
 decompress_status=$?
 echo "------------------------------------------------------"
 
@@ -65,18 +88,25 @@ if [ $decompress_status -ne 0 ]; then
 fi
 
 # --- Verification and Size ---
-./size benchmark/$bench_filename
-./size tmp/cb.enc
+echo "Original size:"
+stat -c %s "benchmark/$bench_filename" 2>/dev/null || ./size "benchmark/$bench_filename" # Try stat, fallback to ./size
+echo "Compressed size:"
+stat -c %s "tmp/cb.enc" 2>/dev/null || ./size "tmp/cb.enc" # Try stat, fallback to ./size
 
-if ! cmp -s benchmark/$bench_filename tmp/cb.dec; then
+
+if ! cmp -s "benchmark/$bench_filename" "tmp/cb.dec"; then
     echo "Error: Files do not match!" >&2
 else
     echo "Success: Files match!"
 fi
 
 # --- Image Conversion (Optional) ---
-echo "Converting files to images..."
-python convert.py benchmark/$bench_filename $size -o tmp/cb_golden.png
-python convert.py tmp/cb.dec $size -o tmp/cb.png
+if command -v python &> /dev/null && [ -f convert.py ]; then
+    echo "Converting files to images..."
+    python convert.py "benchmark/$bench_filename" "$size" -o "tmp/cb_golden.png"
+    python convert.py "tmp/cb.dec" "$size" -o "tmp/cb.png"
+else
+    echo "Skipping image conversion (python or convert.py not found)."
+fi
 
 echo "Benchmark finished."
