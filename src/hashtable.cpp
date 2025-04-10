@@ -7,32 +7,22 @@
 // shift value for rolling hash function
 #define d 5
 
-uint32_t fmix32(uint32_t h) {
-  h ^= h >> 16;
-  h *= 0x85ebca6b;
-  h ^= h >> 13;
-  h *= 0xc2b2ae35;
-  h ^= h >> 16;
-  return h;
-}
-
 #if 1
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
 
 uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
                                   uint64_t position) {
-  // Basic check for sufficient data
-  if (position + 3 > data.size()) {  // Assuming MIN_CODED_LEN is 3
-    throw std::out_of_range(
-        "Not enough data for hashing at the given position");
-    // Or return 0; // Return 0 & TABLE_MASK
-  }
-
-  // Combine the 3 bytes into a uint32_t (Little-Endian)
   uint32_t k1 = 0;
-  k1 |= static_cast<uint32_t>(data[position + 0]);
-  k1 |= static_cast<uint32_t>(data[position + 1]) << 8;
-  k1 |= static_cast<uint32_t>(data[position + 2]) << 16;
+  uint64_t end_position = position + MIN_CODED_LEN > data.size()
+                              ? data.size()
+                              : position + MIN_CODED_LEN;
+  uint16_t shift_left = 0;
+  for (uint64_t i = position; i < end_position; i++) {
+    k1 |= static_cast<uint32_t>(data[i]) << shift_left;
+    shift_left += 8;
+  }
+  // k1 |= static_cast<uint32_t>(data[position + 1]) << 8;
+  // k1 |= static_cast<uint32_t>(data[position + 2]) << 16;
 
   // Simple Mixing (Knuth's multiplicative hash constant)
   k1 *= 0x9E3779B9;  // 2654435769 - A good prime multiplier
