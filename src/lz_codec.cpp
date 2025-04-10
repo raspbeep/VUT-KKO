@@ -14,11 +14,11 @@
 #include "hashtable.hpp"
 #include "token.hpp"
 
-uint16_t block_size = 16;
+uint16_t BLOCK_SIZE = DEFAULT_BLOCK_SIZE;
 
 // coded token parameters
-uint16_t OFFSET_BITS = 8;
-uint16_t LENGTH_BITS = 10;
+uint16_t OFFSET_BITS = DEFAULT_OFFSET_BITS;
+uint16_t LENGTH_BITS = DEFAULT_LENGTH_BITS;
 
 // max number expressible with the OFFSET_LENGTH bits
 uint16_t SEARCH_BUF_SIZE = (1 << OFFSET_BITS) - 1;
@@ -231,16 +231,16 @@ class Image {
       m_data = single_block.m_decoded_data;
 
     } else {
-      uint16_t n_blocks_rows = (m_height + block_size - 1) / block_size;
-      uint16_t n_blocks_cols = (m_width + block_size - 1) / block_size;
+      uint16_t n_blocks_rows = (m_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
+      uint16_t n_blocks_cols = (m_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
       size_t block_index = 0;
 
       // Iterate Row by Row, then Column by Column
       for (uint16_t block_r = 0; block_r < n_blocks_rows; ++block_r) {
-        uint16_t start_row = block_r * block_size;  // Correct row offset
+        uint16_t start_row = block_r * BLOCK_SIZE;  // Correct row offset
 
         for (uint16_t block_c = 0; block_c < n_blocks_cols; ++block_c) {
-          uint16_t start_col = block_c * block_size;  // Correct col offset
+          uint16_t start_col = block_c * BLOCK_SIZE;  // Correct col offset
 
           if (block_index >= m_blocks.size()) {
             throw std::runtime_error(
@@ -330,24 +330,24 @@ class Image {
   void create_multiple_blocks() {
     m_blocks.clear();
     // Correctly calculate row/column block counts
-    uint16_t n_blocks_rows = (m_height + block_size - 1) / block_size;
-    uint16_t n_blocks_cols = (m_width + block_size - 1) / block_size;
+    uint16_t n_blocks_rows = (m_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    uint16_t n_blocks_cols = (m_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
     m_blocks.reserve(static_cast<size_t>(n_blocks_rows) * n_blocks_cols);
 
     // Iterate Row by Row, then Column by Column (more conventional)
     for (uint16_t block_r = 0; block_r < n_blocks_rows; ++block_r) {
       // Calculate row offset based on row index
-      uint16_t start_row = block_r * block_size;
+      uint16_t start_row = block_r * BLOCK_SIZE;
       // Correctly calculate block height using m_height
       uint16_t current_block_height =
-          std::min<uint16_t>(block_size, m_height - start_row);
+          std::min<uint16_t>(BLOCK_SIZE, m_height - start_row);
 
       for (uint16_t block_c = 0; block_c < n_blocks_cols; ++block_c) {
         // Calculate column offset based on column index
-        uint16_t start_col = block_c * block_size;
+        uint16_t start_col = block_c * BLOCK_SIZE;
         // Correctly calculate block width using m_width
         uint16_t current_block_width =
-            std::min<uint16_t>(block_size, m_width - start_col);
+            std::min<uint16_t>(BLOCK_SIZE, m_width - start_col);
 
         std::vector<uint8_t> block_data;
         block_data.reserve(static_cast<size_t>(current_block_width) *
@@ -447,7 +447,7 @@ void print_final_stats(Image& img) {
   std::cout << "Adaptive Mode: " << (img.is_adaptive() ? "Yes" : "No")
             << std::endl;
   if (img.is_adaptive()) {
-    std::cout << "Block Size: " << block_size << "x" << block_size << std::endl;
+    std::cout << "Block Size: " << BLOCK_SIZE << "x" << BLOCK_SIZE << std::endl;
   }
   std::cout << "Number of Blocks: " << img.m_blocks.size() << std::endl;
   std::cout << "Offset Bits: " << OFFSET_BITS

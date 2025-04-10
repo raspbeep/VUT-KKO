@@ -101,8 +101,8 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
         throw std::runtime_error(
             "Block size read from file exceeds uint16_t max.");
       }
-      block_size = static_cast<uint16_t>(temp_block_size);
-      if (block_size == 0) {
+      BLOCK_SIZE = static_cast<uint16_t>(temp_block_size);
+      if (BLOCK_SIZE == 0) {
         throw std::runtime_error("Adaptive mode read invalid block size (0).");
       }
     }
@@ -110,12 +110,12 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
     uint16_t n_row_blocks = 1;
     uint16_t n_col_blocks = 1;
     if (adaptive) {
-      if (block_size == 0) {
+      if (BLOCK_SIZE == 0) {
         throw std::runtime_error(
             "Cannot calculate blocks: Adaptive mode but block size is zero.");
       }
-      n_row_blocks = (height + block_size - 1) / block_size;
-      n_col_blocks = (width + block_size - 1) / block_size;
+      n_row_blocks = (height + BLOCK_SIZE - 1) / BLOCK_SIZE;
+      n_col_blocks = (width + BLOCK_SIZE - 1) / BLOCK_SIZE;
     }
 
     for (uint16_t row = 0; row < n_row_blocks; row++) {
@@ -125,9 +125,9 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
         uint16_t current_block_height = height;
         if (adaptive) {
           current_block_width =
-              std::min<uint16_t>(block_size, width - col * block_size);
+              std::min<uint16_t>(BLOCK_SIZE, width - col * BLOCK_SIZE);
           current_block_height =
-              std::min<uint16_t>(block_size, height - row * block_size);
+              std::min<uint16_t>(BLOCK_SIZE, height - row * BLOCK_SIZE);
         }
 
         uint64_t expected_decoded_bytes =

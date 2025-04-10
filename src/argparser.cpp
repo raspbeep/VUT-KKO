@@ -46,7 +46,7 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
   program.add_argument("--block_size")
       .default_value<uint16_t>(16)
       .scan<'i', uint16_t>()
-      .store_into(block_size)
+      .store_into(BLOCK_SIZE)
       .help("Block size (for adaptive mode)")
       .metavar("BLOCK_SIZE");
   program.add_argument("--offset_bits")
@@ -85,7 +85,7 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
                      "Ignoring."
                   << std::endl;
       } else if (compress_mode && program.is_used("-a")) {
-        std::cout << "Using block size of " << block_size << std::endl;
+        std::cout << "Using block size of " << BLOCK_SIZE << std::endl;
       } else {
         std::cout << "Block size was specified but compression mode is "
                      "disabled. Ignoring."

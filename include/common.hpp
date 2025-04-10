@@ -14,6 +14,10 @@
 // minimum encode length
 #define MIN_CODED_LEN 3
 
+#define DEFAULT_BLOCK_SIZE 16
+#define DEFAULT_OFFSET_BITS 8
+#define DEFAULT_LENGTH_BITS 10
+
 extern uint16_t SEARCH_BUF_SIZE;
 extern uint16_t OFFSET_BITS;
 extern uint16_t LENGTH_BITS;
@@ -28,7 +32,7 @@ struct StrategyResult {
   size_t n_unencoded_tokens;
 };
 
-extern uint16_t block_size;
+extern uint16_t BLOCK_SIZE;
 
 constexpr size_t HORIZONTAL = 0;
 constexpr size_t VERTICAL = 1;

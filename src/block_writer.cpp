@@ -85,9 +85,9 @@ bool write_blocks_to_stream(const std::string& filename, uint16_t width,
     write_bit_to_file(file, model);
     write_bit_to_file(file, adaptive);
     if (adaptive) {
-      std::cout << "Writing block size of " << block_size << " to file."
+      std::cout << "Writing block size of " << BLOCK_SIZE << " to file."
                 << std::endl;
-      write_bits_to_file(file, block_size, 16);
+      write_bits_to_file(file, BLOCK_SIZE, 16);
     }
 
     if (!file.good())
