@@ -50,13 +50,24 @@ void Block::deserialize() {
   if (strategy == HORIZONTAL) {
     return;
   }
+
   m_decoded_deserialized_data.clear();
-  m_decoded_deserialized_data.reserve(m_width * m_height);
-  for (size_t j = 0; j < m_width; ++j) {
-    for (size_t i = 0; i < m_height; ++i) {
-      m_decoded_deserialized_data.push_back(m_decoded_data[i * m_width + j]);
+  m_decoded_deserialized_data.resize(m_width * m_height);
+
+  for (size_t i = 0; i < m_height; ++i) {
+    for (size_t j = 0; j < m_width; ++j) {
+      size_t src_index = j * m_height + i;
+      size_t dest_index = i * m_width + j;
+      if (src_index >= m_decoded_data.size()) {
+        throw std::runtime_error(
+            "Deserialize error: Source index out of bounds.");
+      }
+
+      m_decoded_deserialized_data[dest_index] = m_decoded_data[src_index];
     }
   }
+  // Optional: Clear m_decoded_data if memory is a concern and it's not needed
+  // elsewhere m_decoded_data.clear(); m_decoded_data.shrink_to_fit();
 }
 
 void Block::delta_transform(SerializationStrategy strategy) {

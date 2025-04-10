@@ -92,7 +92,7 @@ bool write_blocks_to_stream(const std::string& filename, uint16_t width,
       throw std::runtime_error("Failed to write header.");
 
     for (const auto& block : blocks) {
-      if (model) {
+      if (adaptive) {
         // write strategy as 2 bits
         write_bits_to_file(file, block.m_picked_strategy, 2);
       }

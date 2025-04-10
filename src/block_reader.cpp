@@ -139,7 +139,7 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
 
         // read the strategy from the file
         uint32_t strategy_val = DEFAULT;
-        if (model) {
+        if (adaptive) {
           if (!read_bits_from_file(file, 2, strategy_val)) {
             std::cerr << "Warning: EOF or read error encountered while reading "
                          "strategy for block ("

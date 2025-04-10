@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-bench_filename="df1hvx.raw"
+bench_filename="nk01.raw"
 size=512
 adaptive_flag=""
 model_flag=""
