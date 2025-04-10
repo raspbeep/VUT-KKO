@@ -22,7 +22,9 @@ class Block {
 
   void deserialize();
 
-  void delta_transform(bool adaptive);
+  void delta_transform(SerializationStrategy strategy);
+
+  void reverse_delta_transform();
 
   void insert_token(SerializationStrategy strategy, token_t token);
 

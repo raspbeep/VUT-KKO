@@ -134,18 +134,20 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
               file_block_size, height - row * file_block_size);
         }
 
-        // Calculate the total number of *bytes* expected for this block
         uint64_t expected_decoded_bytes =
             static_cast<uint64_t>(current_block_width) * current_block_height;
 
         // read the strategy from the file
-        uint32_t strategy_val = DEFAULT;  // Use a temporary uint32_t
-        if (!read_bits_from_file(file, 2, strategy_val)) {
-          std::cerr << "Warning: EOF or read error encountered while reading "
-                       "strategy for block ("
-                    << row << "," << col << ")." << std::endl;
-          throw std::runtime_error(
-              "Failed to read strategy for block. Possible EOF or read error.");
+        uint32_t strategy_val = DEFAULT;
+        if (model) {
+          if (!read_bits_from_file(file, 2, strategy_val)) {
+            std::cerr << "Warning: EOF or read error encountered while reading "
+                         "strategy for block ("
+                      << row << "," << col << ")." << std::endl;
+            throw std::runtime_error(
+                "Failed to read strategy for block. Possible EOF or read "
+                "error.");
+          }
         }
 
         if (strategy_val >= N_STRATEGIES) {

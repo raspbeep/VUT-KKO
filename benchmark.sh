@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-bench_filename="cb2.raw"
+bench_filename="cb.raw"
 size=512
 adaptive_flag=""
 model_flag=""
@@ -97,13 +97,13 @@ else
     echo "Success: Files match!"
 fi
 
-# # --- Image Conversion (Optional) ---
-# if command -v python &> /dev/null && [ -f convert.py ]; then
-#     echo "Converting files to images..."
-#     python convert.py "benchmark/$bench_filename" "$size" -o "tmp/cb_golden.png"
-#     python convert.py "tmp/cb.dec" "$size" -o "tmp/cb.png"
-# else
-#     echo "Skipping image conversion (python or convert.py not found)."
-# fi
+# --- Image Conversion (Optional) ---
+if command -v python &> /dev/null && [ -f convert.py ]; then
+    echo "Converting files to images..."
+    python convert.py "benchmark/$bench_filename" "$size" -o "tmp/cb_golden.png"
+    python convert.py "tmp/cb.dec" "$size" -o "tmp/cb.png"
+else
+    echo "Skipping image conversion (python or convert.py not found)."
+fi
 
 echo "Benchmark finished."

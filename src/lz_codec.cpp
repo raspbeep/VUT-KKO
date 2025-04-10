@@ -15,8 +15,8 @@
 #include "token.hpp"
 
 // coded token parameters
-uint16_t OFFSET_BITS = 9;
-uint16_t LENGTH_BITS = 8;
+uint16_t OFFSET_BITS = 8;
+uint16_t LENGTH_BITS = 10;
 
 // max number expressible with the OFFSET_LENGTH bits
 uint16_t SEARCH_BUF_SIZE = (1 << OFFSET_BITS) - 1;
@@ -139,11 +139,16 @@ class Image {
     // iterate over all blocks, serialize, encode and write them
     for (size_t i = 0; i < m_blocks.size(); i++) {
       Block& block = m_blocks[i];
-      // block.delta_transform(m_adaptive);
       if (m_adaptive) {
         block.serialize_all_strategies();
+        if (m_model)
+          for (size_t j = 0; j < N_STRATEGIES; j++) {
+            block.delta_transform(static_cast<SerializationStrategy>(j));
+          }
         block.encode_adaptive();
       } else {
+        if (m_model)
+          block.delta_transform(DEFAULT);
         block.encode_using_strategy(DEFAULT);
       }
 #if DEBUG_PRINT
@@ -173,6 +178,9 @@ class Image {
 #if DEBUG_PRINT_TOKENS
       block.print_tokens();
 #endif
+      if (m_model) {
+        block.reverse_delta_transform();
+      }
       if (m_adaptive) {
         block.deserialize();
       }
@@ -295,34 +303,9 @@ class Image {
     return m_adaptive;
   }
 
-  void transform() {
-    if (m_data.empty()) {
-      return;
-    }
-    // Store the original value of the previous element
-    uint8_t prev_original = m_data[0];
-    for (uint64_t i = 1; i < m_data.size(); i++) {
-      // Store the original value of the current element before modifying it
-      uint8_t current_original = m_data[i];
-      // Calculate delta based on the *previous* element's original value
-      m_data[i] = static_cast<uint8_t>(current_original - prev_original);
-      // Update prev_original for the next iteration
-      prev_original = current_original;
-    }
-  }
-
   void reverse_transform() {
-    if (m_data.empty() || !m_model) {
-      return;
-    }
-    // prev holds the reconstructed value of the previous element
-    uint8_t prev_reconstructed = m_data[0];  // First element is unchanged
-    for (uint64_t i = 1; i < m_data.size(); i++) {
-      // Reconstruct the current element: original[i] = delta[i] + original[i-1]
-      m_data[i] = static_cast<uint8_t>(m_data[i] + prev_reconstructed);
-      // Update prev_reconstructed to the *newly* reconstructed value for the
-      // next iteration
-      prev_reconstructed = m_data[i];
+    for (auto& block : m_blocks) {
+      block.reverse_delta_transform();
     }
   }
 
@@ -403,31 +386,23 @@ void print_final_stats(Image& img) {
   size_t file_header_bits =
       4 * 16 + 1 + 1;  // width, height, offset, length, model, adaptive
   if (img.is_adaptive()) {
-    // block size info only if adaptive
     file_header_bits += 16;
   }
 
-  // 2. Calculate Total Token Bits
   size_t total_token_bits =
       (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded);
 
-  // 3. Calculate Total Strategy Bits (2 bits per block)
   size_t total_strategy_bits = img.m_blocks.size() * 2;
-
-  // 4. Calculate Total Bits
   size_t total_size_bits =
       file_header_bits + total_token_bits + total_strategy_bits;
 
-  // --- End Corrected Calculation ---
-
-  size_t size_original = static_cast<size_t>(img.get_width()) *
-                         img.get_width() * 8;  // Use size_t for consistency
+  size_t size_original =
+      static_cast<size_t>(img.get_width()) * img.get_width() * 8;
   double compression_ratio =
       (total_size_bits > 0)
           ? (static_cast<double>(size_original) / total_size_bits)
           : 0.0;
-  size_t total_size_bytes = static_cast<size_t>(
-      ceil(total_size_bits / 8.0));  // Use ceil for byte calculation
+  size_t total_size_bytes = static_cast<size_t>(ceil(total_size_bits / 8.0));
 
   std::cout << "--- Final Stats ---" << std::endl;
   std::cout << "Image Dimensions: " << img.get_width() << "x" << img.get_width()
@@ -475,9 +450,6 @@ int main(int argc, char* argv[]) {
     Image i =
         Image(args.get_input_file(), args.get_output_file(),
               args.get_image_width(), args.is_adaptive(), args.use_model());
-    // if (args.use_model()) {
-    //   i.transform();
-    // }
     i.create_blocks();
     i.encode_blocks();
     // print_final_stats(i);
@@ -485,7 +457,6 @@ int main(int argc, char* argv[]) {
     Image i = Image(args.get_input_file(), args.get_output_file());
     i.decode_blocks();
     i.compose_image();
-    // i.reverse_transform();
     i.write_dec_output_file();
   }
 

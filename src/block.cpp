@@ -59,22 +59,28 @@ void Block::deserialize() {
   }
 }
 
-void Block::delta_transform(bool adaptive) {
-  if (adaptive) {
-    // find minimum in each m_data vector
-    for (size_t i = 0; i < N_STRATEGIES; i++) {
-      uint8_t min = *std::min_element(m_data[i].begin(), m_data[i].end());
-      m_delta_params[i] = min;
-      for (size_t j = 0; j < m_data[i].size(); j++) {
-        m_data[i][j] -= min;
-      }
-    }
-  } else {
-    uint8_t min = *std::min_element(m_data[0].begin(), m_data[0].end());
-    m_delta_params[0] = min;
-    for (size_t j = 0; j < m_data[0].size(); j++) {
-      m_data[0][j] -= min;
-    }
+void Block::delta_transform(SerializationStrategy strategy) {
+  if (m_data.empty()) {
+    return;
+  }
+  uint8_t prev_original = m_data[strategy][0];
+  for (uint64_t i = 1; i < m_data[strategy].size(); i++) {
+    uint8_t current_original = m_data[strategy][i];
+    m_data[strategy][i] =
+        static_cast<uint8_t>(current_original - prev_original);
+    prev_original = current_original;
+  }
+}
+
+void Block::reverse_delta_transform() {
+  if (m_decoded_data.empty()) {
+    return;
+  }
+  uint8_t prev_reconstructed = m_decoded_data[0];
+  for (uint64_t i = 1; i < m_decoded_data.size(); i++) {
+    m_decoded_data[i] =
+        static_cast<uint8_t>(m_decoded_data[i] + prev_reconstructed);
+    prev_reconstructed = m_decoded_data[i];
   }
 }
 
