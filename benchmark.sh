@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-bench_filename="cb.raw"
+bench_filename="df1hvx.raw"
 size=512
 adaptive_flag=""
 model_flag=""
@@ -86,6 +86,14 @@ echo "Compressed size: $compressed_size bytes"
 if [ "$original_size" -gt 0 ]; then
   space_saved=$(echo "scale=2; (1 - $compressed_size / $original_size) * 100" | bc)
   echo "Space saved: $space_saved%"
+else
+  echo "Error: Original size is zero or invalid."
+fi
+
+# --- Write bits per char of original file (compressed_size * 8) / original_size ---
+if [ "$original_size" -gt 0 ]; then
+  bits_per_char=$(echo "scale=2; ($compressed_size * 8) / $original_size" | bc)
+  echo "Bits per char: $bits_per_char"
 else
   echo "Error: Original size is zero or invalid."
 fi
