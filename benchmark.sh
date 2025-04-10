@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # --- Default Settings ---
-bench_filename="cb.raw"
+# bench_filename="512x250.bin"
+bench_filename="benchmark/cb.raw"
 size=512
 adaptive_flag=""
 model_flag=""
@@ -44,10 +45,10 @@ mkdir tmp
 
 echo "Running benchmark..."
 echo "------------------------------------------------------"
-echo "./build/lz_codec -c -i benchmark/$bench_filename -o tmp/tmp.enc -w $size ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
+echo "./build/lz_codec -c -i $bench_filename -o tmp/tmp.enc -w $size ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
 
 time ./build/lz_codec -c \
-    -i "benchmark/$bench_filename" \
+    -i "$bench_filename" \
     -o "tmp/tmp.enc" \
     -w "$size" \
     $adaptive_flag \
@@ -77,7 +78,7 @@ if [ $decompress_status -ne 0 ]; then
     exit 1
 fi
 
-original_size=$(stat -c %s "benchmark/$bench_filename" 2>/dev/null || ./size "benchmark/$bench_filename")
+original_size=$(stat -c %s "$bench_filename" 2>/dev/null || ./size "$bench_filename")
 compressed_size=$(stat -c %s "tmp/tmp.enc" 2>/dev/null || ./size "tmp/tmp.enc")
 
 echo "Original size: $original_size bytes"
@@ -99,7 +100,7 @@ else
 fi
 
 
-if ! cmp -s "benchmark/$bench_filename" "tmp/tmp.dec"; then
+if ! cmp -s "$bench_filename" "tmp/tmp.dec"; then
     echo "Error: Files do not match!" >&2
 else
     echo "Success: Files match!"
@@ -108,7 +109,7 @@ fi
 # # --- Image Conversion (Optional) ---
 # if command -v python &> /dev/null && [ -f convert.py ]; then
 #     echo "Converting files to images..."
-#     python convert.py "benchmark/$bench_filename" "$size" -o "tmp/cb_golden.png"
+#     python convert.py "$bench_filename" "$size" -o "tmp/cb_golden.png"
 #     python convert.py "tmp/tmp.dec" "$size" -o "tmp/cb.png"
 # else
 #     echo "Skipping image conversion (python or convert.py not found)."

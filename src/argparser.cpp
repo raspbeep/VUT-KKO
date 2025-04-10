@@ -3,6 +3,8 @@
 #include <argparse.hpp>
 #include <iostream>
 
+#include "common.hpp"
+
 ArgumentParser::ArgumentParser(int argc, char *argv[])
     : program("lz_codec", "1.0", argparse::default_arguments::help) {
   auto &group = program.add_mutually_exclusive_group();
@@ -41,15 +43,32 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       .store_into(image_width)
       .help("Output file")
       .metavar("WIDTH");
-
-  // program.add_argument("--offset")
-  //     .scan<'i', uint16_t>()
-  //     .store_into(offset)
-  //     .help("Output file")
-  //     .metavar("WIDTH");
+  program.add_argument("--block_size")
+      .default_value<uint16_t>(16)
+      .scan<'i', uint16_t>()
+      .store_into(block_size)
+      .help("Block size (for adaptive mode)")
+      .metavar("BLOCK_SIZE");
+  program.add_argument("--offset_bits")
+      .default_value<uint16_t>(8)
+      .scan<'i', uint16_t>()
+      .store_into(OFFSET_BITS)
+      .help("Number of bits used for offset in token")
+      .metavar("OFFSET_BITS");
+  program.add_argument("--length_bits")
+      .default_value<uint16_t>(10)
+      .scan<'i', uint16_t>()
+      .store_into(LENGTH_BITS)
+      .help("Number of bits used for length in token")
+      .metavar("LENGTH_BITS");
 
   try {
     program.parse_args(argc, argv);
+    if (!compress_mode && !decompress_mode) {
+      throw std::runtime_error(
+          "Error: Missing required argument '-c' or '-d' choosing compression "
+          "or decompression respectively.");
+    }
     if (compress_mode && !program.is_used("-w")) {
       throw std::runtime_error(
           "Error: Missing required argument '-w' for decompression mode.");
@@ -58,6 +77,26 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       std::cout << "Warning: Decompress mode is enabled, but width is "
                    "specified. Width "
                    "will be ignored."
+                << std::endl;
+    }
+    if (program.is_used("--block_size")) {
+      if (compress_mode && !program.is_used("-a")) {
+        std::cout << "Block size was specified but adaptive mode is disabled."
+                     "Ignoring."
+                  << std::endl;
+      } else if (compress_mode && program.is_used("-a")) {
+        std::cout << "Using block size of " << block_size << std::endl;
+      } else {
+        std::cout << "Block size was specified but compression mode is "
+                     "disabled. Ignoring."
+                  << std::endl;
+      }
+    }
+    if (program.is_used("--offset_bits")) {
+      std::cout << "Using offset of length " << LENGTH_BITS << "b" << std::endl;
+    }
+    if (program.is_used("--length_bits")) {
+      std::cout << "Using " << LENGTH_BITS << "b for length in token"
                 << std::endl;
     }
     // print_args();

@@ -71,8 +71,6 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
 
   reset_bit_reader_state();
 
-  uint16_t file_block_size = 0;
-
   try {
     // Read header not bit-packed for consistency
     file.read(reinterpret_cast<char*>(&width), sizeof(width));
@@ -103,10 +101,8 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
         throw std::runtime_error(
             "Block size read from file exceeds uint16_t max.");
       }
-      file_block_size = static_cast<uint16_t>(temp_block_size);
-      // Add a check: the block_size read should match the one used during
-      // encoding
-      if (file_block_size == 0) {
+      block_size = static_cast<uint16_t>(temp_block_size);
+      if (block_size == 0) {
         throw std::runtime_error("Adaptive mode read invalid block size (0).");
       }
     }
@@ -114,12 +110,12 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
     uint16_t n_row_blocks = 1;
     uint16_t n_col_blocks = 1;
     if (adaptive) {
-      if (file_block_size == 0) {
+      if (block_size == 0) {
         throw std::runtime_error(
             "Cannot calculate blocks: Adaptive mode but block size is zero.");
       }
-      n_row_blocks = (height + file_block_size - 1) / file_block_size;
-      n_col_blocks = (width + file_block_size - 1) / file_block_size;
+      n_row_blocks = (height + block_size - 1) / block_size;
+      n_col_blocks = (width + block_size - 1) / block_size;
     }
 
     for (uint16_t row = 0; row < n_row_blocks; row++) {
@@ -128,10 +124,10 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
         uint16_t current_block_width = width;
         uint16_t current_block_height = height;
         if (adaptive) {
-          current_block_width = std::min<uint16_t>(
-              file_block_size, width - col * file_block_size);
-          current_block_height = std::min<uint16_t>(
-              file_block_size, height - row * file_block_size);
+          current_block_width =
+              std::min<uint16_t>(block_size, width - col * block_size);
+          current_block_height =
+              std::min<uint16_t>(block_size, height - row * block_size);
         }
 
         uint64_t expected_decoded_bytes =

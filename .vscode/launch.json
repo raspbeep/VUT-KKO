@@ -61,7 +61,15 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/lz_codec",
-      "args": ["-d", "-i", "${workspaceFolder}/tmp/cb.enc", "-o", "out"],
+      "args": [
+        "-d",
+        "-i",
+        "${workspaceFolder}/tmp/tmp.enc",
+        "-o",
+        "out",
+        "--block_size",
+        "64"
+      ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

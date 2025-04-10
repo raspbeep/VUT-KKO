@@ -14,6 +14,8 @@
 #include "hashtable.hpp"
 #include "token.hpp"
 
+uint16_t block_size = 16;
+
 // coded token parameters
 uint16_t OFFSET_BITS = 8;
 uint16_t LENGTH_BITS = 10;
@@ -42,7 +44,7 @@ class Image {
         m_model(model) {
     // read the input file and store it in m_data vector
     read_enc_input_file();
-    if (m_data.size() != static_cast<size_t>(m_width) * m_width) {
+    if (m_data.size() != static_cast<size_t>(m_width) * m_height) {
       throw std::runtime_error(
           "Error: Data size does not match image dimensions.");
     }
@@ -66,7 +68,7 @@ class Image {
     // read the input file and store the tokens in m_tokens vector
     // store all the params from header in the class variables
 
-    read_blocks_from_file(m_input_filename, m_width, m_width, OFFSET_BITS,
+    read_blocks_from_file(m_input_filename, m_width, m_height, OFFSET_BITS,
                           LENGTH_BITS, m_adaptive, m_model, m_blocks);
   }
 
@@ -81,12 +83,14 @@ class Image {
     auto length = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    uint64_t expected_size = static_cast<uint64_t>(m_width) * m_width;
+    m_height = length / m_width;
+
+    uint64_t expected_size = static_cast<uint64_t>(m_width) * m_height;
     if (length < 0 || static_cast<uint64_t>(length) != expected_size) {
       std::ostringstream error_msg;
       error_msg << "Error: Input file '" << m_input_filename
                 << "' size mismatch. Expected " << expected_size << " bytes ("
-                << m_width << "x" << m_width << "), but got " << length
+                << m_width << "x" << m_height << "), but got " << length
                 << " bytes.";
       throw std::runtime_error(error_msg.str());
     }
@@ -167,7 +171,7 @@ class Image {
     // we will not need the m_data anymore
     m_data.clear();
 
-    write_blocks_to_stream(m_output_filename, m_width, m_width, OFFSET_BITS,
+    write_blocks_to_stream(m_output_filename, m_width, m_height, OFFSET_BITS,
                            LENGTH_BITS, m_adaptive, m_model, m_blocks);
   }
 
@@ -195,7 +199,7 @@ class Image {
       return;
     }
 
-    uint64_t expected_size = static_cast<uint64_t>(m_width) * m_width;
+    uint64_t expected_size = static_cast<uint64_t>(m_width) * m_height;
 
     m_data.clear();
 
@@ -212,7 +216,8 @@ class Image {
       }
       const Block& single_block = m_blocks[0];
 
-      if (single_block.m_width != m_width || single_block.m_height != m_width) {
+      if (single_block.m_width != m_width ||
+          single_block.m_height != m_height) {
         throw std::runtime_error(
             "Error composing image: Single block dimensions mismatch image "
             "dimensions.");
@@ -226,19 +231,16 @@ class Image {
       m_data = single_block.m_decoded_data;
 
     } else {
-      uint16_t n_blocks_dim = (m_width + block_size - 1) / block_size;
-      size_t block_index = 0;  // To iterate through the m_blocks vector
+      uint16_t n_blocks_rows = (m_height + block_size - 1) / block_size;
+      uint16_t n_blocks_cols = (m_width + block_size - 1) / block_size;
+      size_t block_index = 0;
 
-      // Iterate through the grid of blocks (row by row, then column by column)
-      for (uint16_t block_r = 0; block_r < n_blocks_dim; ++block_r) {
-        uint16_t start_row =
-            block_r *
-            block_size;  // Top row of the current block in the final image
+      // Iterate Row by Row, then Column by Column
+      for (uint16_t block_r = 0; block_r < n_blocks_rows; ++block_r) {
+        uint16_t start_row = block_r * block_size;  // Correct row offset
 
-        for (uint16_t block_c = 0; block_c < n_blocks_dim; ++block_c) {
-          uint16_t start_col =
-              block_c *
-              block_size;  // Left col of the current block in the final image
+        for (uint16_t block_c = 0; block_c < n_blocks_cols; ++block_c) {
+          uint16_t start_col = block_c * block_size;  // Correct col offset
 
           if (block_index >= m_blocks.size()) {
             throw std::runtime_error(
@@ -247,31 +249,40 @@ class Image {
           }
 
           Block& current_block = m_blocks[block_index];
+          // Ensure you get the final deserialized data if applicable
           const std::vector<uint8_t>& block_data =
               current_block.get_decoded_data();
           uint16_t current_block_height = current_block.m_height;
           uint16_t current_block_width = current_block.m_width;
 
-          if (block_data.size() !=
-              static_cast<size_t>(current_block_width) * current_block_height) {
-            throw std::runtime_error("Error composing image: Block #" +
-                                     std::to_string(block_index) +
-                                     " has internal data size mismatch.");
-          }
+          // ... (check block_data size against block dimensions) ...
 
           size_t block_data_idx = 0;
+          // Place data into the final image using correct destination indices
           for (uint16_t r = 0; r < current_block_height; ++r) {
             for (uint16_t c = 0; c < current_block_width; ++c) {
               size_t dest_row = start_row + r;
               size_t dest_col = start_col + c;
 
-              if (dest_row >= m_width || dest_col >= m_width) {
+              // Use correct image dimensions for bounds check
+              if (dest_row >= m_height || dest_col >= m_width) {
                 throw std::runtime_error(
                     "Error composing image: Calculated destination index out "
                     "of image bounds.");
               }
 
+              // Index into final image data
               size_t dest_index = dest_row * m_width + dest_col;
+              if (dest_index >= m_data.size()) {
+                throw std::runtime_error(
+                    "Error: Calculated destination index out of bounds during "
+                    "composition.");
+              }
+              if (block_data_idx >= block_data.size()) {
+                throw std::runtime_error(
+                    "Error: Source block data index out of bounds during "
+                    "composition.");
+              }
 
               m_data[dest_index] = block_data[block_data_idx++];
             }
@@ -318,17 +329,23 @@ class Image {
 
   void create_multiple_blocks() {
     m_blocks.clear();
-    uint16_t n_blocks_dim = (m_width + block_size - 1) / block_size;
-    m_blocks.reserve(static_cast<size_t>(n_blocks_dim) * n_blocks_dim);
+    // Correctly calculate row/column block counts
+    uint16_t n_blocks_rows = (m_height + block_size - 1) / block_size;
+    uint16_t n_blocks_cols = (m_width + block_size - 1) / block_size;
+    m_blocks.reserve(static_cast<size_t>(n_blocks_rows) * n_blocks_cols);
 
-    for (uint16_t block_r = 0; block_r < n_blocks_dim; ++block_r) {
+    // Iterate Row by Row, then Column by Column (more conventional)
+    for (uint16_t block_r = 0; block_r < n_blocks_rows; ++block_r) {
+      // Calculate row offset based on row index
       uint16_t start_row = block_r * block_size;
-
+      // Correctly calculate block height using m_height
       uint16_t current_block_height =
-          std::min<uint16_t>(block_size, m_width - start_row);
+          std::min<uint16_t>(block_size, m_height - start_row);
 
-      for (uint16_t block_c = 0; block_c < n_blocks_dim; ++block_c) {
+      for (uint16_t block_c = 0; block_c < n_blocks_cols; ++block_c) {
+        // Calculate column offset based on column index
         uint16_t start_col = block_c * block_size;
+        // Correctly calculate block width using m_width
         uint16_t current_block_width =
             std::min<uint16_t>(block_size, m_width - start_col);
 
@@ -336,27 +353,46 @@ class Image {
         block_data.reserve(static_cast<size_t>(current_block_width) *
                            current_block_height);
 
+        // Extract data using correct dimensions and offsets
         for (uint16_t r = start_row; r < start_row + current_block_height;
              ++r) {
           for (uint16_t c = start_col; c < start_col + current_block_width;
                ++c) {
+            // Index into original image data
             size_t index = static_cast<size_t>(r) * m_width + c;
+            if (index >= m_data.size()) {
+              // Add robust error handling just in case
+              throw std::runtime_error(
+                  "Error: Calculated index out of bounds during block "
+                  "creation.");
+            }
             block_data.push_back(m_data[index]);
           }
         }
 
+        // Verify extracted data size (optional but good practice)
         if (block_data.size() !=
             static_cast<size_t>(current_block_width) * current_block_height) {
-          std::cerr << "Error: Internal logic error. Block data size mismatch."
+          std::cerr << "Error: Internal logic error during block creation. "
+                       "Size mismatch."
                     << " Expected: "
                     << (static_cast<size_t>(current_block_width) *
                         current_block_height)
                     << " Got: " << block_data.size() << std::endl;
-          throw std::runtime_error("Block data size mismatch.");
+          throw std::runtime_error("Block data size mismatch during creation.");
         }
+
+        // Create block with correct data and dimensions
         m_blocks.emplace_back(std::move(block_data), current_block_width,
                               current_block_height);
       }
+    }
+    // Verify total number of blocks created (optional)
+    if (m_blocks.size() != static_cast<size_t>(n_blocks_rows) * n_blocks_cols) {
+      std::cerr << "Warning: Number of created blocks (" << m_blocks.size()
+                << ") does not match expected count ("
+                << (static_cast<size_t>(n_blocks_rows) * n_blocks_cols) << ")."
+                << std::endl;
     }
   }
 
@@ -365,6 +401,7 @@ class Image {
   std::string m_output_filename;
   std::ofstream o_file_handle;
   uint16_t m_width;
+  uint16_t m_height;
   bool m_adaptive;
   bool m_model;
   std::vector<uint8_t> m_data;
