@@ -6,6 +6,8 @@
 
 #include "common.hpp"
 
+#define HASH_TABLE_SIZE (1 << 12)
+
 struct search_result {
   bool found;         // true if a match was found
   uint64_t position;  // position in the input stream
@@ -31,6 +33,7 @@ class HashTable {
 
   HashNode** table;
   uint32_t size;
+  uint64_t collision_count;
 
   private:
   uint32_t hash_function(std::vector<uint8_t>& data, uint64_t position);

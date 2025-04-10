@@ -66,8 +66,8 @@ void Block::deserialize() {
       m_decoded_deserialized_data[dest_index] = m_decoded_data[src_index];
     }
   }
-  // Optional: Clear m_decoded_data if memory is a concern and it's not needed
-  // elsewhere m_decoded_data.clear(); m_decoded_data.shrink_to_fit();
+  m_decoded_data.clear();
+  m_decoded_data.shrink_to_fit();
 }
 
 void Block::delta_transform(SerializationStrategy strategy) {
@@ -174,7 +174,7 @@ void Block::encode_using_strategy(SerializationStrategy strategy) {
     strategy = HORIZONTAL;
   }
 
-  auto hash_table = HashTable(1 << 12);
+  auto hash_table = HashTable(HASH_TABLE_SIZE);
   // push the first two bytes unencoded since the dict is empty
   uint64_t position = 0;
   for (position = 0; position < MIN_CODED_LEN; position++) {

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-bench_filename="nk01.raw"
+bench_filename="shp2.raw"
 size=512
 adaptive_flag=""
 model_flag=""
@@ -33,7 +33,7 @@ while getopts "am" opt; do
 done
 shift $((OPTIND-1))
 
-make -B
+make
 if [ $? -ne 0 ]; then
     echo "Error: make failed!" >&2
     exit 1

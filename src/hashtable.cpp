@@ -7,20 +7,55 @@
 // shift value for rolling hash function
 #define d 5
 
+uint32_t fmix32(uint32_t h) {
+  h ^= h >> 16;
+  h *= 0x85ebca6b;
+  h ^= h >> 13;
+  h *= 0xc2b2ae35;
+  h ^= h >> 16;
+  return h;
+}
+
+#if 1
+const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
+
+uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
+                                  uint64_t position) {
+  // Basic check for sufficient data
+  if (position + 3 > data.size()) {  // Assuming MIN_CODED_LEN is 3
+    throw std::out_of_range(
+        "Not enough data for hashing at the given position");
+    // Or return 0; // Return 0 & TABLE_MASK
+  }
+
+  // Combine the 3 bytes into a uint32_t (Little-Endian)
+  uint32_t k1 = 0;
+  k1 |= static_cast<uint32_t>(data[position + 0]);
+  k1 |= static_cast<uint32_t>(data[position + 1]) << 8;
+  k1 |= static_cast<uint32_t>(data[position + 2]) << 16;
+
+  // Simple Mixing (Knuth's multiplicative hash constant)
+  k1 *= 0x9E3779B9;  // 2654435769 - A good prime multiplier
+  k1 ^= k1 >> 16;    // Simple final mixing step
+
+  // Use bitwise AND for power-of-2 table size
+  return k1 & TABLE_MASK;
+}
+#else
 uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
                                   uint64_t position) {
   uint32_t key = 0;
-  for (uint16_t i = 0; i < (MIN_CODED_LEN + 1); i++) {
-    if (position + i < data.size()) {
-      key = (key << d) ^ (data[position + i]);
-      key %= size;
-    }
+  for (uint16_t i = 0; i < MIN_CODED_LEN; i++) {
+    key |= static_cast<uint32_t>(data[position + i]);
+    key <<= static_cast<uint32_t>(data[position + i]);
+    key %= size;
   }
   return key;
 }
+#endif
 
 // allocates a hash table of size 'size' and initializes all entries to nullptr
-HashTable::HashTable(uint32_t size) : size(size) {
+HashTable::HashTable(uint32_t size) : size(size), collision_count(0) {
   table = new HashNode*[size];
   for (uint16_t i = 0; i < size; ++i) {
     table[i] = nullptr;
@@ -30,6 +65,9 @@ HashTable::HashTable(uint32_t size) : size(size) {
 // iterates over the hash table and deletes all LL nodes and the hash table
 // itself
 HashTable::~HashTable() {
+#if DEBUG_PRINT_COLLISIONS
+  std::cout << "Collision count: " << collision_count << std::endl;
+#endif
   for (uint16_t i = 0; i < size; ++i) {
     HashNode* current = table[i];
     while (current != nullptr) {
@@ -68,6 +106,28 @@ search_result HashTable::search(std::vector<uint8_t>& data,
       uint8_t cmp2 = data[current->position + i];
       if (cmp1 != cmp2) {
         // hash collision! hashes matched but the data is different
+        collision_count++;
+#if DEBUG_PRINT_COLLISIONS
+        std::cout << "HashTable::search: hash collision!" << std::endl;
+        std::cout << "string1: ";
+        for (uint16_t j = 0; j < MIN_CODED_LEN; ++j) {
+          std::cout << static_cast<int>(data[current_pos + j]) << " ";
+        }
+        std::cout << "(";
+        for (uint16_t j = 0; j < MIN_CODED_LEN; ++j) {
+          std::cout << static_cast<char>(data[current_pos + j]);
+        }
+        std::cout << ")" << std::endl;
+        std::cout << "string2: ";
+        for (uint16_t j = 0; j < MIN_CODED_LEN; ++j) {
+          std::cout << static_cast<int>(data[current->position + j]) << " ";
+        }
+        std::cout << "(";
+        for (uint16_t j = 0; j < MIN_CODED_LEN; ++j) {
+          std::cout << static_cast<char>(data[current->position + j]);
+        }
+        std::cout << ")" << std::endl;
+#endif
         current = current->next;
         match = false;
         break;
