@@ -60,7 +60,7 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
                    "will be ignored."
                 << std::endl;
     }
-    print_args();
+    // print_args();
   } catch (const std::runtime_error &err) {
     std::cerr << err.what() << std::endl;
     std::cerr << program;

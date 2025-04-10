@@ -10,13 +10,12 @@
 #include "block.hpp"
 #include "block_reader.hpp"
 #include "block_writer.hpp"
-#include "bst.hpp"
 #include "common.hpp"
 #include "hashtable.hpp"
 #include "token.hpp"
 
 // coded token parameters
-uint16_t OFFSET_BITS = 10;
+uint16_t OFFSET_BITS = 9;
 uint16_t LENGTH_BITS = 8;
 
 // max number expressible with the OFFSET_LENGTH bits
@@ -160,6 +159,9 @@ class Image {
 #endif
     }
 
+    // we will not need the m_data anymore
+    m_data.clear();
+
     write_blocks_to_stream(m_output_filename, m_width, m_width, OFFSET_BITS,
                            LENGTH_BITS, m_adaptive, m_model, m_blocks);
   }
@@ -289,6 +291,10 @@ class Image {
     return m_width;
   }
 
+  bool is_adaptive() const {
+    return m_adaptive;
+  }
+
   void transform() {
     if (m_data.empty()) {
       return;
@@ -394,30 +400,73 @@ void print_final_stats(Image& img) {
       token.coded ? coded++ : uncoded++;
     }
   }
+  size_t file_header_bits =
+      4 * 16 + 1 + 1;  // width, height, offset, length, model, adaptive
+  if (img.is_adaptive()) {
+    // block size info only if adaptive
+    file_header_bits += 16;
+  }
 
-  size_t total_size = (TOKEN_CODED_LEN * coded) +
-                      (TOKEN_UNCODED_LEN * uncoded) + (4 * 16) + 1 + 1 +
-                      (img.m_blocks.size()) * 16;
+  // 2. Calculate Total Token Bits
+  size_t total_token_bits =
+      (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded);
 
-  size_t size_original = img.get_width() * img.get_width() * 8;
-  std::cout << "Original data size: " << size_original << "b" << std::endl;
+  // 3. Calculate Total Strategy Bits (2 bits per block)
+  size_t total_strategy_bits = img.m_blocks.size() * 2;
+
+  // 4. Calculate Total Bits
+  size_t total_size_bits =
+      file_header_bits + total_token_bits + total_strategy_bits;
+
+  // --- End Corrected Calculation ---
+
+  size_t size_original = static_cast<size_t>(img.get_width()) *
+                         img.get_width() * 8;  // Use size_t for consistency
+  double compression_ratio =
+      (total_size_bits > 0)
+          ? (static_cast<double>(size_original) / total_size_bits)
+          : 0.0;
+  size_t total_size_bytes = static_cast<size_t>(
+      ceil(total_size_bits / 8.0));  // Use ceil for byte calculation
+
+  std::cout << "--- Final Stats ---" << std::endl;
+  std::cout << "Image Dimensions: " << img.get_width() << "x" << img.get_width()
+            << std::endl;
+  std::cout << "Adaptive Mode: " << (img.is_adaptive() ? "Yes" : "No")
+            << std::endl;
+  if (img.is_adaptive()) {
+    std::cout << "Block Size: " << block_size << "x" << block_size << std::endl;
+  }
+  std::cout << "Number of Blocks: " << img.m_blocks.size() << std::endl;
+  std::cout << "Offset Bits: " << OFFSET_BITS
+            << ", Length Bits: " << LENGTH_BITS << std::endl;
+  std::cout << "Original data size: " << size_original << "b ("
+            << size_original / 8 << "B)" << std::endl;
   std::cout << "Coded tokens: " << coded << " (" << TOKEN_CODED_LEN * coded
             << "b)" << std::endl;
   std::cout << "Uncoded tokens: " << uncoded << " ("
             << TOKEN_UNCODED_LEN * uncoded << "b)" << std::endl;
-  std::cout << "Total size (including block headers): " << total_size << "b ("
-            << total_size / 8 << "B)" << std::endl;
-  std::cout << "Compression ratio: "
-            << size_original /
-                   static_cast<double>((TOKEN_CODED_LEN * coded) +
-                                       (TOKEN_UNCODED_LEN * uncoded))
+  std::cout << "File Header Size: " << file_header_bits << "b" << std::endl;
+  std::cout << "Block Strategy Headers Size: " << total_strategy_bits << "b"
             << std::endl;
+  std::cout << "Total Token Data Size: " << total_token_bits << "b"
+            << std::endl;
+  std::cout << "Calculated Total Size: " << total_size_bits << "b ("
+            << total_size_bytes << "B)" << std::endl;
+  std::cout << "Compression Ratio (Original Bits / Total Bits): "
+            << compression_ratio << std::endl;
+  double space_saved_percent =
+      (size_original > 0)
+          ? (1.0 - (static_cast<double>(total_size_bits) / size_original)) *
+                100.0
+          : 0.0;
+
+  std::cout << "Space Saved: " << std::fixed << std::setprecision(2)
+            << space_saved_percent << "%" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
-  std::cout << "max length: " << MAX_CODED_LEN << std::endl;
-  std::cout << "offset bits: " << OFFSET_BITS << std::endl;
 
   assert(OFFSET_BITS <= 15);
   assert(LENGTH_BITS <= 15);
@@ -426,17 +475,17 @@ int main(int argc, char* argv[]) {
     Image i =
         Image(args.get_input_file(), args.get_output_file(),
               args.get_image_width(), args.is_adaptive(), args.use_model());
-    if (args.use_model()) {
-      i.transform();
-    }
+    // if (args.use_model()) {
+    //   i.transform();
+    // }
     i.create_blocks();
     i.encode_blocks();
-    print_final_stats(i);
+    // print_final_stats(i);
   } else {
     Image i = Image(args.get_input_file(), args.get_output_file());
     i.decode_blocks();
     i.compose_image();
-    i.reverse_transform();
+    // i.reverse_transform();
     i.write_dec_output_file();
   }
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-bench_filename="cb.raw"
+bench_filename="cb2.raw"
 size=512
 adaptive_flag=""
 model_flag=""
@@ -33,7 +33,7 @@ while getopts "am" opt; do
 done
 shift $((OPTIND-1))
 
-make -B -j8
+make -B
 if [ $? -ne 0 ]; then
     echo "Error: make failed!" >&2
     exit 1
@@ -77,10 +77,18 @@ if [ $decompress_status -ne 0 ]; then
     exit 1
 fi
 
-echo "Original size:"
-stat -c %s "benchmark/$bench_filename" 2>/dev/null || ./size "benchmark/$bench_filename"
-echo "Compressed size:"
-stat -c %s "tmp/cb.enc" 2>/dev/null || ./size "tmp/cb.enc"
+original_size=$(stat -c %s "benchmark/$bench_filename" 2>/dev/null || ./size "benchmark/$bench_filename")
+compressed_size=$(stat -c %s "tmp/cb.enc" 2>/dev/null || ./size "tmp/cb.enc")
+
+echo "Original size: $original_size bytes"
+echo "Compressed size: $compressed_size bytes"
+
+if [ "$original_size" -gt 0 ]; then
+  space_saved=$(echo "scale=2; (1 - $compressed_size / $original_size) * 100" | bc)
+  echo "Space saved: $space_saved%"
+else
+  echo "Error: Original size is zero or invalid."
+fi
 
 
 if ! cmp -s "benchmark/$bench_filename" "tmp/cb.dec"; then
@@ -89,13 +97,13 @@ else
     echo "Success: Files match!"
 fi
 
-# --- Image Conversion (Optional) ---
-if command -v python &> /dev/null && [ -f convert.py ]; then
-    echo "Converting files to images..."
-    python convert.py "benchmark/$bench_filename" "$size" -o "tmp/cb_golden.png"
-    python convert.py "tmp/cb.dec" "$size" -o "tmp/cb.png"
-else
-    echo "Skipping image conversion (python or convert.py not found)."
-fi
+# # --- Image Conversion (Optional) ---
+# if command -v python &> /dev/null && [ -f convert.py ]; then
+#     echo "Converting files to images..."
+#     python convert.py "benchmark/$bench_filename" "$size" -o "tmp/cb_golden.png"
+#     python convert.py "tmp/cb.dec" "$size" -o "tmp/cb.png"
+# else
+#     echo "Skipping image conversion (python or convert.py not found)."
+# fi
 
 echo "Benchmark finished."

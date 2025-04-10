@@ -220,6 +220,9 @@ void Block::encode_adaptive() {
       best_encoded_size = current_strategy_result;
       m_picked_strategy = static_cast<SerializationStrategy>(i);
       first = false;
+    } else {
+      // if the current strategy is not the best one, clear the tokens
+      m_tokens[i].clear();
     }
   }
 }
