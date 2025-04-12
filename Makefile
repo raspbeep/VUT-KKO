@@ -10,6 +10,7 @@ OBJS = $(addprefix $(BUILD_DIR)/,$(notdir $(SRCS:.cpp=.o)))
 # Executable name
 TARGET_NAME = lz_codec
 TARGET = $(BUILD_DIR)/$(TARGET_NAME)
+ZIP_NAME = xkrato61.zip
 
 BUILD_DIR = build
 
@@ -39,4 +40,12 @@ run: $(TARGET)
 clean:
 	@echo "Cleaning up..."
 	rm -rf $(BUILD_DIR)
+	rm -f lz_codec
+	rm -f $(ZIP_NAME)
 	@echo "Cleanup complete."
+
+.PHONY: zip
+zip:
+	@echo "Creating zip archive..."
+	zip -r $(ZIP_NAME) src include Makefile report.pdf readme.md
+	@echo "Zip archive created."
