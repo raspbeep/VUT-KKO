@@ -11,10 +11,10 @@
 class Block {
   public:
   // Constructor for encoding
-  Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height);
+  Block(const std::vector<uint8_t> data, uint32_t width, uint32_t height);
 
   // Constructor for decoding
-  Block(uint16_t width, uint16_t height, SerializationStrategy strategy);
+  Block(uint32_t width, uint32_t height, SerializationStrategy strategy);
 
   void serialize_all_strategies();
 
@@ -58,8 +58,8 @@ class Block {
   std::array<std::vector<token_t>, N_STRATEGIES> m_tokens;
   std::array<StrategyResult, N_STRATEGIES> m_strategy_results;
   std::array<uint8_t, N_STRATEGIES> m_delta_params;
-  uint16_t m_width;
-  uint16_t m_height;
+  uint32_t m_width;
+  uint32_t m_height;
   std::vector<uint8_t> m_decoded_data;
   std::vector<uint8_t> m_decoded_deserialized_data;
 

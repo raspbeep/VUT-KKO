@@ -35,7 +35,7 @@ size_t TOKEN_UNCODED_LEN = 1 + 8;
 class Image {
   public:
   // Constructor for encoding
-  Image(std::string i_filename, std::string o_filename, uint16_t width,
+  Image(std::string i_filename, std::string o_filename, uint32_t width,
         bool adaptive, bool model)
       : m_input_filename(i_filename),
         m_output_filename(o_filename),
@@ -82,7 +82,20 @@ class Image {
     auto length = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    m_height = length / m_width;
+    uint64_t temp_height = length / m_width;
+
+    if (length > UINT32_MAX) {
+      std::ostringstream error_msg;
+      error_msg << "Error: Input file '" << m_input_filename
+                << "' is too large. Maximum size is " << UINT16_MAX
+                << " bytes.";
+      throw std::runtime_error(error_msg.str());
+    }
+    m_height = static_cast<uint32_t>(temp_height);
+
+    std::cout << "Length of file: " << length
+              << " divided by width: " << m_width
+              << " gives height: " << m_height << std::endl;
 
     uint64_t expected_size = static_cast<uint64_t>(m_width) * m_height;
     if (length < 0 || static_cast<uint64_t>(length) != expected_size) {
@@ -231,6 +244,9 @@ class Image {
 
       if (single_block.m_width != m_width ||
           single_block.m_height != m_height) {
+        std::cout << "Error composing image: Single block dimensions: "
+                  << single_block.m_width << "x" << single_block.m_height
+                  << ", expected: " << m_width << "x" << m_height << std::endl;
         throw std::runtime_error(
             "Error composing image: Single block dimensions mismatch image "
             "dimensions.");
@@ -469,8 +485,8 @@ class Image {
   std::string m_input_filename;
   std::string m_output_filename;
   std::ofstream o_file_handle;
-  uint16_t m_width;
-  uint16_t m_height;
+  uint32_t m_width;
+  uint32_t m_height;
   bool m_adaptive;
   bool m_model;
   std::vector<uint8_t> m_data;
@@ -578,8 +594,14 @@ bool copy_uncompressed_file(std::string input_filename,
 int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
 
-  assert(OFFSET_BITS <= 15);
-  assert(LENGTH_BITS <= 15);
+  SEARCH_BUF_SIZE = (1 << OFFSET_BITS) - 1;
+  MAX_CODED_LEN = (1 << LENGTH_BITS) - 1 + MIN_CODED_LEN;
+  TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;
+  TOKEN_UNCODED_LEN = 1 + 8;
+
+  assert(OFFSET_BITS > 0 && OFFSET_BITS <= 16);
+  assert(LENGTH_BITS > 0 && LENGTH_BITS <= 16);
+  assert(MIN_CODED_LEN > 0);
 
   if (args.is_compress_mode()) {
     Image i =

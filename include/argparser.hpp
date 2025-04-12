@@ -13,7 +13,7 @@ class ArgumentParser {
   std::string output_file;
   bool adaptive;
   bool model;
-  uint16_t image_width;
+  uint32_t image_width;
   uint16_t offset;
   uint16_t length;
 
@@ -25,7 +25,7 @@ class ArgumentParser {
   std::string get_output_file() const;
   bool is_adaptive() const;
   bool use_model() const;
-  uint16_t get_image_width() const;
+  uint32_t get_image_width() const;
   void print_args() const;
 };
 

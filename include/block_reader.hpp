@@ -7,8 +7,8 @@
 
 #include "token.hpp"
 
-bool read_blocks_from_file(const std::string& filename, uint16_t& width,
-                           uint16_t& height, uint16_t& offset_bits,
+bool read_blocks_from_file(const std::string& filename, uint32_t& width,
+                           uint32_t& height, uint16_t& offset_bits,
                            uint16_t& length_bits, bool& adaptive, bool& model,
                            std::vector<Block>& blocks);
 

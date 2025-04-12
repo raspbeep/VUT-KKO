@@ -56,8 +56,8 @@ bool read_bits_from_file(std::ifstream& file, int numBits, uint32_t& value) {
   return true;
 }
 
-bool read_blocks_from_file(const std::string& filename, uint16_t& width,
-                           uint16_t& height, uint16_t& offset_bits,
+bool read_blocks_from_file(const std::string& filename, uint32_t& width,
+                           uint32_t& height, uint16_t& offset_bits,
                            uint16_t& length_bits, bool& adaptive, bool& model,
                            std::vector<Block>& blocks) {
   blocks.clear();
@@ -123,13 +123,13 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
     for (uint16_t row = 0; row < n_row_blocks; row++) {
       for (uint16_t col = 0; col < n_col_blocks; col++) {
         // Calculate the current block's width and height
-        uint16_t current_block_width = width;
-        uint16_t current_block_height = height;
+        uint32_t current_block_width = width;
+        uint32_t current_block_height = height;
         if (adaptive) {
           current_block_width =
-              std::min<uint16_t>(BLOCK_SIZE, width - col * BLOCK_SIZE);
+              std::min<uint32_t>(BLOCK_SIZE, width - col * BLOCK_SIZE);
           current_block_height =
-              std::min<uint16_t>(BLOCK_SIZE, height - row * BLOCK_SIZE);
+              std::min<uint32_t>(BLOCK_SIZE, height - row * BLOCK_SIZE);
         }
 
         uint64_t expected_decoded_bytes =
@@ -239,7 +239,7 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
     return false;
   }
 
-end_reading:  // Label to jump to on read errors within loops
+end_reading:
 
   // Reset state after successful read or normal EOF break
   reset_bit_reader_state();

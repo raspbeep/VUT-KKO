@@ -39,24 +39,25 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       .store_into(model)
       .help("Use model preprocessing");
   program.add_argument("-w")
-      .scan<'i', uint16_t>()
+      .default_value<uint32_t>(1)
+      .scan<'i', uint32_t>()
       .store_into(image_width)
       .help("Output file")
       .metavar("WIDTH");
   program.add_argument("--block_size")
-      .default_value<uint16_t>(16)
+      .default_value<uint16_t>(DEFAULT_BLOCK_SIZE)
       .scan<'i', uint16_t>()
       .store_into(BLOCK_SIZE)
       .help("Block size (for adaptive mode)")
       .metavar("BLOCK_SIZE");
   program.add_argument("--offset_bits")
-      .default_value<uint16_t>(8)
+      .default_value<uint16_t>(DEFAULT_OFFSET_BITS)
       .scan<'i', uint16_t>()
       .store_into(OFFSET_BITS)
       .help("Number of bits used for offset in token")
       .metavar("OFFSET_BITS");
   program.add_argument("--length_bits")
-      .default_value<uint16_t>(10)
+      .default_value<uint16_t>(DEFAULT_LENGTH_BITS)
       .scan<'i', uint16_t>()
       .store_into(LENGTH_BITS)
       .help("Number of bits used for length in token")
@@ -68,10 +69,6 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       throw std::runtime_error(
           "Error: Missing required argument '-c' or '-d' choosing compression "
           "or decompression respectively.");
-    }
-    if (compress_mode && !program.is_used("-w")) {
-      throw std::runtime_error(
-          "Error: Missing required argument '-w' for decompression mode.");
     }
     if (decompress_mode && program.is_used("-w")) {
       std::cout << "Warning: Decompress mode is enabled, but width is "
@@ -93,7 +90,8 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       }
     }
     if (program.is_used("--offset_bits")) {
-      std::cout << "Using offset of length " << LENGTH_BITS << "b" << std::endl;
+      std::cout << "Using " << OFFSET_BITS << "b for offset in token"
+                << std::endl;
     }
     if (program.is_used("--length_bits")) {
       std::cout << "Using " << LENGTH_BITS << "b for length in token"
@@ -125,7 +123,7 @@ bool ArgumentParser::is_adaptive() const {
 bool ArgumentParser::use_model() const {
   return model;
 }
-uint16_t ArgumentParser::get_image_width() const {
+uint32_t ArgumentParser::get_image_width() const {
   return image_width;
 }
 

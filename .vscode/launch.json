@@ -35,11 +35,12 @@
       "args": [
         "-c",
         "-i",
-        "${workspaceFolder}/benchmark/cb.raw",
+        "${workspaceFolder}/512x250.bin",
         "-o",
         "tmp/cb.enc",
         "-w",
-        "512"
+        "1",
+        "-a"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
@@ -61,15 +62,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/lz_codec",
-      "args": [
-        "-d",
-        "-i",
-        "${workspaceFolder}/tmp/tmp.enc",
-        "-o",
-        "out",
-        "--block_size",
-        "64"
-      ],
+      "args": ["-d", "-i", "${workspaceFolder}/tmp/tmp.enc", "-o", "out"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

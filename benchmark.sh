@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-default_bench_filename="benchmark/shp1.raw"
+default_bench_filename="512x250.bin"
 # List of files to benchmark when --all is used
 all_bench_files=(
     "benchmark/cb.raw"
@@ -18,7 +18,8 @@ size=512
 adaptive_flag=""
 model_flag=""
 run_all_flag=0 # Flag to indicate if --all was passed
-# additional_params="--block_size=12"
+# example additional args to pass to lz_codec
+# additional_params="--block_size=12 --offset_bits=6 --length_bits=6"
 
 
 # --- Timing & Stats Variables ---
@@ -73,11 +74,10 @@ for arg in "$@"; do
       shift # Remove --all from arguments
       ;;
     *)
-      new_args+=("$arg") # Keep other args
+      new_args+=("$arg")
       ;;
   esac
 done
-# Reset positional parameters for getopt
 set -- "${new_args[@]}"
 
 # Parse short options using getopt
