@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -O0 -g -std=c++23 -Iinclude -march=native
+CXXFLAGS = -Wall -Wextra -O1 -std=c++23 -Isrc -Iinclude -march=native
 
 # Source files (only .cpp files)
 SRCS = src/argparser.cpp src/image.cpp src/block.cpp src/hashtable.cpp src/block_reader.cpp src/block_writer.cpp src/lz_codec.cpp

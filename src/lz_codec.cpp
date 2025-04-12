@@ -20,13 +20,7 @@
 #include <vector>
 
 #include "argparser.hpp"
-#include "block.hpp"
-#include "block_reader.hpp"
-#include "block_writer.hpp"
-#include "common.hpp"
-#include "hashtable.hpp"
 #include "image.hpp"
-#include "token.hpp"
 
 uint16_t BLOCK_SIZE = DEFAULT_BLOCK_SIZE;
 
@@ -149,7 +143,8 @@ int main(int argc, char* argv[]) {
   TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;
   TOKEN_UNCODED_LEN = 1 + 8;
 
-  assert(BLOCK_SIZE > 0 && BLOCK_SIZE < 1 << 15);
+  // asserts for checking valid values
+  assert(BLOCK_SIZE > 0 && BLOCK_SIZE < (1 << 15));
   assert(OFFSET_BITS > 0 && OFFSET_BITS < 16);
   assert(LENGTH_BITS > 0 && LENGTH_BITS < 16);
   assert(MIN_CODED_LEN > 0);
@@ -161,8 +156,6 @@ int main(int argc, char* argv[]) {
     i.create_blocks();
     i.encode_blocks();
     if (i.is_compression_successful()) {
-      std::cout << "Compression successful. Writing to: "
-                << args.get_output_file() << std::endl;
       i.write_blocks();
     } else {
       i.copy_unsuccessful_compression();
@@ -170,8 +163,6 @@ int main(int argc, char* argv[]) {
     }
   } else {
     if (copy_uncompressed_file(args.get_input_file(), args.get_output_file())) {
-      std::cout << "Uncompressed file copied to: " << args.get_output_file()
-                << std::endl;
       return 0;
     }
     Image i = Image(args.get_input_file(), args.get_output_file());
