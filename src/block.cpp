@@ -78,7 +78,7 @@ void Block::deserialize() {
   m_decoded_data.shrink_to_fit();
 }
 
-#if 0
+#if 1
 void Block::delta_transform(SerializationStrategy strategy) {
   if (m_data.empty()) {
     return;

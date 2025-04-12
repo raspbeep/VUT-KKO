@@ -54,7 +54,6 @@ class Image {
   Image(std::string i_filename, std::string o_filename)
       : m_input_filename(i_filename), m_output_filename(o_filename) {
     // read the input file and store it in m_data vector
-
     read_dec_input_file();
   }
 
@@ -359,6 +358,25 @@ class Image {
     }
   }
 
+  void copy_unsuccessful_compression() {
+    // open the output file in binary mode
+    std::ofstream o_file_handle(m_output_filename, std::ios::binary);
+
+    // write a zero byte to the output file
+    o_file_handle.put(0);
+    // open the input file and copy the data to the output file
+    std::ifstream i_file_handle(m_input_filename, std::ios::binary);
+    if (!i_file_handle) {
+      throw std::runtime_error("Error: Unable to open input file: " +
+                               m_input_filename);
+    }
+    o_file_handle << i_file_handle.rdbuf();
+    o_file_handle.close();
+    i_file_handle.close();
+    std::cout << "Unsuccessful compression, original data copied to: "
+              << m_output_filename << std::endl;
+  }
+
   private:
   void create_single_block() {
     // single block
@@ -516,6 +534,35 @@ void print_final_stats(Image& img) {
             << space_saved_percent << "%" << std::endl;
 }
 
+bool copy_uncompressed_file(std::string input_filename,
+                            std::string output_filename) {
+  // open the input file in binary mode
+  std::ifstream i_file_handle(input_filename, std::ios::binary);
+
+  // read the first byte from the input file
+  char first_byte;
+  i_file_handle.get(first_byte);
+
+  if (first_byte) {
+    i_file_handle.close();
+
+    return false;
+  }
+
+  // open the output file
+  std::ifstream o_file_handle(output_filename, std::ios::binary);
+  // copy the contents of input file into the output file
+  std::ofstream o_file_handle_copy(output_filename, std::ios::binary);
+  if (!o_file_handle_copy) {
+    throw std::runtime_error("Error: Unable to open output file: " +
+                             output_filename);
+  }
+  o_file_handle_copy << i_file_handle.rdbuf();
+  o_file_handle_copy.close();
+  i_file_handle.close();
+  return true;
+}
+
 int main(int argc, char* argv[]) {
   ArgumentParser args(argc, argv);
 
@@ -528,22 +575,20 @@ int main(int argc, char* argv[]) {
               args.get_image_width(), args.is_adaptive(), args.use_model());
     i.create_blocks();
     i.encode_blocks();
-    // if (i.is_compression_successful()) {
-    //   std::cout << "Compression successful. Writing to: "
-    //             << args.get_output_file() << std::endl;
-    i.write_blocks();
-    // } else {
-    //   // copy original file
-    //   std::ifstream src(args.get_input_file(), std::ios::binary);
-    //   std::ofstream dst(args.get_output_file(), std::ios::binary);
-    //   dst << src.rdbuf();
-    //   src.close();
-    //   dst.close();
-    //   std::cout << "Compression not successful. Original file copied to: "
-    //             << args.get_output_file() << std::endl;
-    // }
-    // print_final_stats(i);
+    if (i.is_compression_successful()) {
+      std::cout << "Compression successful. Writing to: "
+                << args.get_output_file() << std::endl;
+      i.write_blocks();
+    } else {
+      i.copy_unsuccessful_compression();
+      print_final_stats(i);
+    }
   } else {
+    if (copy_uncompressed_file(args.get_input_file(), args.get_output_file())) {
+      std::cout << "Uncompressed file copied to: " << args.get_output_file()
+                << std::endl;
+      return 0;
+    }
     Image i = Image(args.get_input_file(), args.get_output_file());
     i.decode_blocks();
     i.compose_image();

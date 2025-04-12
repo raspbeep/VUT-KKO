@@ -74,8 +74,10 @@ bool write_blocks_to_stream(const std::string& filename, uint16_t width,
   }
 
   reset_bit_writer_state();
-
+  uint8_t successful_compression = 1;
   try {
+    file.write(reinterpret_cast<const char*>(&successful_compression),
+               sizeof(successful_compression));
     file.write(reinterpret_cast<const char*>(&width), sizeof(width));
     file.write(reinterpret_cast<const char*>(&height), sizeof(height));
     file.write(reinterpret_cast<const char*>(&offset_length),

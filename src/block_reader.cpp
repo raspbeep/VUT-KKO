@@ -70,9 +70,11 @@ bool read_blocks_from_file(const std::string& filename, uint16_t& width,
   }
 
   reset_bit_reader_state();
-
+  uint8_t successful_compression;
   try {
     // Read header not bit-packed for consistency
+    file.read(reinterpret_cast<char*>(&successful_compression),
+              sizeof(successful_compression));
     file.read(reinterpret_cast<char*>(&width), sizeof(width));
     file.read(reinterpret_cast<char*>(&height), sizeof(height));
     file.read(reinterpret_cast<char*>(&offset_bits), sizeof(offset_bits));
