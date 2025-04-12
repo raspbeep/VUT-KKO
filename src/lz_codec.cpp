@@ -170,7 +170,9 @@ class Image {
 
     // we will not need the m_data anymore
     m_data.clear();
+  }
 
+  void write_blocks() {
     write_blocks_to_stream(m_output_filename, m_width, m_height, OFFSET_BITS,
                            LENGTH_BITS, m_adaptive, m_model, m_blocks);
   }
@@ -310,8 +312,45 @@ class Image {
     return m_width;
   }
 
+  uint16_t get_height() const {
+    return m_height;
+  }
+
   bool is_adaptive() const {
     return m_adaptive;
+  }
+
+  bool is_compression_successful() {
+    size_t coded = 0;
+    size_t uncoded = 0;
+    for (auto& block : m_blocks) {
+      auto strategy = block.m_picked_strategy;
+      for (auto& token : block.m_tokens[strategy]) {
+        token.coded ? coded++ : uncoded++;
+      }
+    }
+    size_t file_header_bits =
+        4 * 16 + 1 + 1;  // width, height, offset, length, model, adaptive
+    if (m_adaptive) {
+      file_header_bits += 16;
+    }
+
+    size_t total_token_bits =
+        (TOKEN_CODED_LEN * coded) + (TOKEN_UNCODED_LEN * uncoded);
+
+    size_t total_strategy_bits = m_blocks.size() * 2;
+    size_t total_size_bits =
+        file_header_bits + total_token_bits + total_strategy_bits;
+
+    size_t size_original = static_cast<size_t>(m_width) * m_height;
+
+    size_t total_size_bytes = static_cast<size_t>(ceil(total_size_bits / 8.0));
+
+    std::cout << "--- Compression Stats ---" << std::endl;
+    std::cout << "Original Size: " << size_original << " bytes" << std::endl;
+    std::cout << "Compressed Size: " << total_size_bytes << " bytes"
+              << std::endl;
+    return total_size_bytes < size_original;
   }
 
   void reverse_transform() {
@@ -434,7 +473,7 @@ void print_final_stats(Image& img) {
       file_header_bits + total_token_bits + total_strategy_bits;
 
   size_t size_original =
-      static_cast<size_t>(img.get_width()) * img.get_width() * 8;
+      static_cast<size_t>(img.get_width()) * img.get_height() * 8;
   double compression_ratio =
       (total_size_bits > 0)
           ? (static_cast<double>(size_original) / total_size_bits)
@@ -442,8 +481,8 @@ void print_final_stats(Image& img) {
   size_t total_size_bytes = static_cast<size_t>(ceil(total_size_bits / 8.0));
 
   std::cout << "--- Final Stats ---" << std::endl;
-  std::cout << "Image Dimensions: " << img.get_width() << "x" << img.get_width()
-            << std::endl;
+  std::cout << "Image Dimensions: " << img.get_width() << "x"
+            << img.get_height() << std::endl;
   std::cout << "Adaptive Mode: " << (img.is_adaptive() ? "Yes" : "No")
             << std::endl;
   if (img.is_adaptive()) {
@@ -489,6 +528,20 @@ int main(int argc, char* argv[]) {
               args.get_image_width(), args.is_adaptive(), args.use_model());
     i.create_blocks();
     i.encode_blocks();
+    // if (i.is_compression_successful()) {
+    //   std::cout << "Compression successful. Writing to: "
+    //             << args.get_output_file() << std::endl;
+    i.write_blocks();
+    // } else {
+    //   // copy original file
+    //   std::ifstream src(args.get_input_file(), std::ios::binary);
+    //   std::ofstream dst(args.get_output_file(), std::ios::binary);
+    //   dst << src.rdbuf();
+    //   src.close();
+    //   dst.close();
+    //   std::cout << "Compression not successful. Original file copied to: "
+    //             << args.get_output_file() << std::endl;
+    // }
     // print_final_stats(i);
   } else {
     Image i = Image(args.get_input_file(), args.get_output_file());

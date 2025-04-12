@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-default_bench_filename="benchmark/cb.raw"
+default_bench_filename="benchmark/shp1.raw"
 # List of files to benchmark when --all is used
 all_bench_files=(
     "benchmark/cb.raw"
@@ -20,11 +20,14 @@ adaptive_flag=""
 model_flag=""
 run_all_flag=0 # Flag to indicate if --all was passed
 
-# --- Timing Variables ---
+# --- Timing & Stats Variables ---
 total_compress_time_sec=0.0
 total_decompress_time_sec=0.0
 successful_compress_count=0
 successful_decompress_count=0
+total_bits_used=0
+total_original_size=0
+successful_bpc_count=0 # Count runs successful for BPC calculation
 
 # Function to parse time output (e.g., "real 0m1.234s") and return seconds
 parse_time() {
@@ -206,11 +209,13 @@ for bench_filename in "${files_to_process[@]}"; do
     # --- Calculate and Display Stats ---
     original_size=$(stat -c %s "$bench_filename" 2>/dev/null) || original_size=$(./size "$bench_filename" 2>/dev/null) || original_size=0
     compressed_size=$(stat -c %s "tmp/tmp.enc" 2>/dev/null) || compressed_size=$(./size "tmp/tmp.enc" 2>/dev/null) || compressed_size=0
+    sizes_valid=0 # Flag to track if sizes were determined correctly for BPC calc
 
     echo "Original size: $original_size bytes"
     echo "Compressed size: $compressed_size bytes"
 
     if [ "$original_size" -gt 0 ] && [ "$compressed_size" -ge 0 ]; then
+      sizes_valid=1 # Mark sizes as valid for this file
       space_saved=$(echo "scale=2; (1 - $compressed_size / $original_size) * 100" | bc)
       echo "Space saved: $space_saved%"
       bits_per_char=$(echo "scale=2; ($compressed_size * 8) / $original_size" | bc)
@@ -228,6 +233,13 @@ for bench_filename in "${files_to_process[@]}"; do
         overall_status=1
     else
         echo "Success: Files match for '$bench_filename'!"
+        # Accumulate for average BPC calculation ONLY if sizes were valid AND files match
+        if [ "$sizes_valid" -eq 1 ]; then
+            current_bits_used=$(echo "$compressed_size * 8" | bc)
+            total_bits_used=$(echo "scale=0; $total_bits_used + $current_bits_used" | bc)
+            total_original_size=$(echo "scale=0; $total_original_size + $original_size" | bc)
+            successful_bpc_count=$((successful_bpc_count + 1))
+        fi
     fi
 
 done # End of loop for files_to_process
@@ -236,7 +248,7 @@ echo "======================================================"
 echo "Benchmark Summary"
 echo "======================================================"
 
-# --- Calculate and Print Averages ---
+# --- Calculate and Print Average Times ---
 if [ "$successful_compress_count" -gt 0 ]; then
     avg_compress_time=$(echo "scale=4; $total_compress_time_sec / $successful_compress_count" | bc)
     printf "Average Compression Time (real): %.4fs (%d successful runs)\n" "$avg_compress_time" "$successful_compress_count"
@@ -250,6 +262,17 @@ if [ "$successful_decompress_count" -gt 0 ]; then
 else
     echo "Average Decompression Time (real): N/A (0 successful runs)"
 fi
+
+# --- Calculate and Print Average Bits Per Char ---
+if [ "$successful_bpc_count" -gt 0 ] && [ "$total_original_size" -gt 0 ]; then
+    avg_bits_per_char=$(echo "scale=4; $total_bits_used / $total_original_size" | bc)
+    printf "Average Bits Per Char:         %.4f (%d successful runs)\n" "$avg_bits_per_char" "$successful_bpc_count"
+elif [ "$successful_bpc_count" -gt 0 ]; then
+     echo "Average Bits Per Char:         N/A (Total original size was zero for successful runs)"
+else
+    echo "Average Bits Per Char:         N/A (0 successful runs with valid sizes and matching files)"
+fi
+
 
 echo "------------------------------------------------------"
 if [ "$overall_status" -eq 0 ]; then

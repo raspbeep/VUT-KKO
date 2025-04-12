@@ -26,6 +26,7 @@ class HashTable {
   struct search_result search(std::vector<uint8_t>& data, uint64_t current_pos);
 
   private:
+  // linked list structure for hash table
   struct HashNode {
     uint64_t position;  // position in the input stream
     HashNode* next;
