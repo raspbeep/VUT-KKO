@@ -1,19 +1,16 @@
 #include "block.hpp"
 
 #include <algorithm>
-#include <algorithm>  // For std::find, std::rotate
-#include <cstdint>    // For uint8_t
+#include <cstdint>
 #include <iostream>
-#include <iterator>  // For std::distance
-#include <map>       // Assuming m_data is map-like (or similar structure)
-#include <numeric>   // For std::iota
+#include <iterator>
+#include <map>
+#include <numeric>
 #include <stdexcept>
-#include <stdexcept>  // For error handling
 #include <vector>
 
 #include "common.hpp"
 #include "hashtable.hpp"
-// #include "linkedlist.hpp"
 
 Block::Block(const std::vector<uint8_t> data, uint16_t width, uint16_t height)
     : m_width(width), m_height(height), m_picked_strategy(HORIZONTAL) {
@@ -31,7 +28,6 @@ Block::Block(uint16_t width, uint16_t height, SerializationStrategy strategy)
 void Block::serialize_all_strategies() {
   serialize(HORIZONTAL);
   serialize(VERTICAL);
-  // serialize(DIAGONAL);
 }
 
 void Block::serialize(SerializationStrategy strategy) {
@@ -78,7 +74,6 @@ void Block::deserialize() {
   m_decoded_data.shrink_to_fit();
 }
 
-#if 1
 void Block::delta_transform(SerializationStrategy strategy) {
   if (m_data.empty()) {
     return;
@@ -103,101 +98,61 @@ void Block::reverse_delta_transform() {
   }
 }
 
-#else
-void Block::delta_transform(SerializationStrategy strategy) {
-  // Convert the enum strategy to its underlying size_t index
+void Block::mtf(SerializationStrategy strategy) {
   size_t strategy_index = static_cast<size_t>(strategy);
 
-  // Runtime bounds check for safety (optional but recommended)
-  // This prevents accessing the array out of bounds if an invalid
-  // enum value (e.g., from an unsafe cast) is somehow passed.
-  if (strategy_index >= N_STRATEGIES) {
-    throw std::out_of_range(
-        "Invalid SerializationStrategy value provided to delta_transform.");
-  }
-
-  // Get a reference to the specific vector using the strategy's index
   std::vector<uint8_t>& data_vec = m_data[strategy_index];
 
-  // --- The core MTF logic remains unchanged ---
-
-  // 1. Initialize the dictionary (0..255)
   std::vector<uint8_t> dictionary(256);
   std::iota(dictionary.begin(), dictionary.end(), 0);
 
-  // 2. Iterate over the target data vector
   for (size_t i = 0; i < data_vec.size(); ++i) {
     uint8_t current_byte = data_vec[i];
 
-    // 3. Find the byte in the dictionary
     auto dict_it =
         std::find(dictionary.begin(), dictionary.end(), current_byte);
 
-    // This check should ideally never fail with valid byte data
     if (dict_it == dictionary.end()) {
       throw std::logic_error(
           "MTF Error: Byte value not found in the 0-255 dictionary. "
           "Indicates a potential data corruption or logic issue.");
     }
 
-    // 4. Calculate the index
     uint8_t index =
         static_cast<uint8_t>(std::distance(dictionary.begin(), dict_it));
 
-    // 5. Replace data byte with its current index
     data_vec[i] = index;
 
-    // 6. Move the found byte to the front of the dictionary if needed
     if (index != 0) {
       std::rotate(dictionary.begin(), dict_it, dict_it + 1);
     }
   }
-  // The 'dictionary' vector goes out of scope here, and its memory
-  // is automatically managed (no leaks).
 }
 
-void Block::reverse_delta_transform() {
-  // Get a reference to the specific vector containing the encoded indices
+void Block::reverse_mtf() {
   std::vector<uint8_t>& encoded_data = m_decoded_data;
 
-  // 1. Initialize the dictionary exactly as in the encoder
   std::vector<uint8_t> dictionary(256);
-  std::iota(dictionary.begin(), dictionary.end(),
-            0);  // Fills with 0, 1, ..., 255
+  std::iota(dictionary.begin(), dictionary.end(), 0);
 
-  // 2. Iterate over the encoded data (which contains indices)
   for (size_t i = 0; i < encoded_data.size(); ++i) {
     uint8_t current_index = encoded_data[i];
 
-    // 3. Check if the index is valid (within the dictionary bounds)
-    //    An invalid index indicates corrupted data or an encoding error.
-    if (current_index >= dictionary.size()) {  // size is always 256 here
+    if (current_index >= dictionary.size()) {
       throw std::runtime_error(
           "MTF Decode Error: Invalid index encountered in encoded data.");
     }
 
-    // 4. Look up the byte corresponding to the current index in the dictionary
     uint8_t decoded_byte = dictionary[current_index];
 
-    // 5. Replace the index in the data vector with the decoded byte
     encoded_data[i] = decoded_byte;
-
-    // 6. Update the dictionary state *exactly* like the encoder did:
-    //    Move the `decoded_byte` (which was at `current_index`) to the front.
-    //    Only perform the rotation if the element wasn't already at the front.
     if (current_index != 0) {
-      // Find the iterator pointing to the element we just decoded
-      // (which is currently at dictionary[current_index])
       auto dict_it = dictionary.begin() + current_index;
 
-      // Rotate the element at dict_it to the beginning
       std::rotate(dictionary.begin(), dict_it, dict_it + 1);
     }
-    // No else needed: if index was 0, the byte was already at the front.
   }
-  // Dictionary goes out of scope, memory managed automatically.
 }
-#endif
 
 void Block::insert_token(SerializationStrategy strategy, token_t token) {
 #if 0

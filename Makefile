@@ -15,6 +15,7 @@ BUILD_DIR = build
 
 .PHONY: all
 all: $(TARGET)
+	cp $(TARGET) ./$(TARGET_NAME)
 
 # Compile object files
 $(BUILD_DIR)/%.o: src/%.cpp | $(BUILD_DIR)

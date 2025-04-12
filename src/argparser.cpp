@@ -81,7 +81,7 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
     }
     if (program.is_used("--block_size")) {
       if (compress_mode && !program.is_used("-a")) {
-        std::cout << "Block size was specified but adaptive mode is disabled."
+        std::cout << "Block size was specified but adaptive mode is disabled. "
                      "Ignoring."
                   << std::endl;
       } else if (compress_mode && program.is_used("-a")) {

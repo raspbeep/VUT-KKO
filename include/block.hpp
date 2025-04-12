@@ -26,6 +26,10 @@ class Block {
 
   void reverse_delta_transform();
 
+  void mtf(SerializationStrategy strategy);
+
+  void reverse_mtf();
+
   void insert_token(SerializationStrategy strategy, token_t token);
 
   void decode_using_strategy(SerializationStrategy strategy);

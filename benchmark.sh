@@ -13,12 +13,13 @@ all_bench_files=(
     "benchmark/shp.raw"
     "benchmark/shp1.raw"
     "benchmark/shp2.raw"
-    "benchmark/512x250.raw"
 )
 size=512
 adaptive_flag=""
 model_flag=""
 run_all_flag=0 # Flag to indicate if --all was passed
+# additional_params="--block_size=12"
+
 
 # --- Timing & Stats Variables ---
 total_compress_time_sec=0.0
@@ -159,7 +160,7 @@ for bench_filename in "${files_to_process[@]}"; do
 
     echo "Running benchmark..."
     echo "------------------------------------------------------"
-    compress_cmd="./build/lz_codec -c -i \"$bench_filename\" -o \"tmp/tmp.enc\" -w \"$size\" ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
+    compress_cmd="./build/lz_codec -c -i \"$bench_filename\" -o \"tmp/tmp.enc\" -w \"$size\" ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"${additional_params:+" $additional_params"}
     echo "$compress_cmd"
 
     # Capture time output (stderr) into a variable
@@ -183,7 +184,7 @@ for bench_filename in "${files_to_process[@]}"; do
         echo "------------------------------------------------------"
     fi
 
-    decompress_cmd="./build/lz_codec -d -i \"tmp/tmp.enc\" -o \"tmp/tmp.dec\" ${adaptive_flag:+"$adaptive_flag"}${model_flag:+" $model_flag"}"
+    decompress_cmd="./build/lz_codec -d -i \"tmp/tmp.enc\" -o \"tmp/tmp.dec\""
     echo "$decompress_cmd"
 
     # Capture time output

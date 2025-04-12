@@ -146,12 +146,20 @@ class Image {
         block.serialize_all_strategies();
         if (m_model)
           for (size_t j = 0; j < N_STRATEGIES; j++) {
+#if MTF
+            block.mtf(static_cast<SerializationStrategy>(j));
+#else
             block.delta_transform(static_cast<SerializationStrategy>(j));
+#endif
           }
         block.encode_adaptive();
       } else {
         if (m_model)
+#if MTF
+          block.mtf(DEFAULT);
+#else
           block.delta_transform(DEFAULT);
+#endif
         block.encode_using_strategy(DEFAULT);
       }
 #if DEBUG_PRINT
@@ -184,7 +192,11 @@ class Image {
       block.print_tokens();
 #endif
       if (m_model) {
+#if MTF
+        block.reverse_mtf();
+#else
         block.reverse_delta_transform();
+#endif
       }
       if (m_adaptive) {
         block.deserialize();
@@ -581,7 +593,7 @@ int main(int argc, char* argv[]) {
       i.write_blocks();
     } else {
       i.copy_unsuccessful_compression();
-      print_final_stats(i);
+      // print_final_stats(i);
     }
   } else {
     if (copy_uncompressed_file(args.get_input_file(), args.get_output_file())) {

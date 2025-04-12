@@ -18,6 +18,9 @@
 #define DEFAULT_OFFSET_BITS 8
 #define DEFAULT_LENGTH_BITS 10
 
+// use MTF, if 0 use delta transform
+#define MTF 0
+
 extern uint16_t SEARCH_BUF_SIZE;
 extern uint16_t OFFSET_BITS;
 extern uint16_t LENGTH_BITS;

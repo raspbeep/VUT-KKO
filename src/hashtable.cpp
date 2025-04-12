@@ -4,10 +4,6 @@
 #include <iostream>
 #include <stdexcept>
 
-// shift value for rolling hash function
-#define d 5
-
-#if 1
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
 
 uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
@@ -21,28 +17,14 @@ uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
     k1 |= static_cast<uint32_t>(data[i]) << shift_left;
     shift_left += 8;
   }
-  // k1 |= static_cast<uint32_t>(data[position + 1]) << 8;
-  // k1 |= static_cast<uint32_t>(data[position + 2]) << 16;
 
   // Simple Mixing (Knuth's multiplicative hash constant)
-  k1 *= 0x9E3779B9;  // 2654435769 - A good prime multiplier
-  k1 ^= k1 >> 16;    // Simple final mixing step
+  k1 *= 0x9E3779B9;
+  k1 ^= k1 >> 16;
 
-  // Use bitwise AND for power-of-2 table size
+  // Use bitwise AND to get index in the range of the hash table size
   return k1 & TABLE_MASK;
 }
-#else
-uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
-                                  uint64_t position) {
-  uint32_t key = 0;
-  for (uint16_t i = 0; i < MIN_CODED_LEN; i++) {
-    key |= static_cast<uint32_t>(data[position + i]);
-    key <<= static_cast<uint32_t>(data[position + i]);
-    key %= size;
-  }
-  return key;
-}
-#endif
 
 // allocates a hash table of size 'size' and initializes all entries to nullptr
 HashTable::HashTable(uint32_t size) : size(size), collision_count(0) {
