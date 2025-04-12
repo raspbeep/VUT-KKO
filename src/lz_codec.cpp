@@ -599,8 +599,8 @@ int main(int argc, char* argv[]) {
   TOKEN_CODED_LEN = 1 + OFFSET_BITS + LENGTH_BITS;
   TOKEN_UNCODED_LEN = 1 + 8;
 
-  assert(OFFSET_BITS > 0 && OFFSET_BITS <= 16);
-  assert(LENGTH_BITS > 0 && LENGTH_BITS <= 16);
+  assert(OFFSET_BITS > 0 && OFFSET_BITS < 16);
+  assert(LENGTH_BITS > 0 && LENGTH_BITS < 16);
   assert(MIN_CODED_LEN > 0);
 
   if (args.is_compress_mode()) {
