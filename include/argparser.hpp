@@ -17,6 +17,10 @@
 #include <argparse.hpp>
 #include <string>
 
+/**
+ * @class ArgumentParser
+ * @brief Parses and stores command-line arguments for the lz_codec program.
+ */
 class ArgumentParser {
   private:
   argparse::ArgumentParser program;
@@ -31,14 +35,58 @@ class ArgumentParser {
   uint16_t length;
 
   public:
+  /**
+   * @brief Constructs the ArgumentParser and parses command-line arguments.
+   * @param argc Argument count.
+   * @param argv Argument vector.
+   */
   ArgumentParser(int argc, char *argv[]);
+
+  /**
+   * @brief Checks if compress mode is enabled.
+   * @return True if compress mode is set, false otherwise.
+   */
   bool is_compress_mode() const;
+
+  /**
+   * @brief Checks if decompress mode is enabled.
+   * @return True if decompress mode is set, false otherwise.
+   */
   bool is_decompress_mode() const;
+
+  /**
+   * @brief Gets the input file path.
+   * @return The input file path as a string.
+   */
   std::string get_input_file() const;
+
+  /**
+   * @brief Gets the output file path.
+   * @return The output file path as a string.
+   */
   std::string get_output_file() const;
+
+  /**
+   * @brief Checks if the adaptive strategy is enabled.
+   * @return True if adaptive strategy is enabled, false otherwise.
+   */
   bool is_adaptive() const;
+
+  /**
+   * @brief Checks if model preprocessing is enabled.
+   * @return True if model preprocessing is enabled, false otherwise.
+   */
   bool use_model() const;
+
+  /**
+   * @brief Gets the specified image width (used in model preprocessing).
+   * @return The image width as a 32-bit unsigned integer.
+   */
   uint32_t get_image_width() const;
+
+  /**
+   * @brief Prints the parsed arguments to standard output.
+   */
   void print_args() const;
 };
 

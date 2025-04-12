@@ -19,6 +19,14 @@
 #include <iostream>
 #include <vector>
 
+/**
+ * @struct token_t
+ * @brief Represents a token in the LZSS compressed stream.
+ *
+ * A token can either represent a literal (uncoded) byte or a reference
+ * (coded) to a previously seen sequence of bytes, defined by an offset
+ * and length pair.
+ */
 typedef struct {
   bool coded;
   union {

@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -Wall -Wextra -O0 -g -std=c++23 -Iinclude -march=native
 
 # Source files (only .cpp files)
-SRCS = src/argparser.cpp src/block.cpp src/hashtable.cpp src/block_reader.cpp src/block_writer.cpp src/lz_codec.cpp
+SRCS = src/argparser.cpp src/image.cpp src/block.cpp src/hashtable.cpp src/block_reader.cpp src/block_writer.cpp src/lz_codec.cpp
 
 # Object files
 OBJS = $(addprefix $(BUILD_DIR)/,$(notdir $(SRCS:.cpp=.o)))
