@@ -1,3 +1,16 @@
+/**
+ * @file      token.hpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Header file with token structure for LZSS compression
+ *
+ * @date      12 April  2025 \n
+ */
+
 #ifndef TOKEN_HPP
 #define TOKEN_HPP
 

@@ -1,3 +1,16 @@
+/**
+ * @file      argparser.hpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Header file for the argument parser implementation
+ *
+ * @date      12 April  2025 \n
+ */
+
 #ifndef ARGUMENT_PARSER_H
 #define ARGUMENT_PARSER_H
 

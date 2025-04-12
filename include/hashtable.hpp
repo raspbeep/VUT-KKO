@@ -1,3 +1,16 @@
+/**
+ * @file      hashtable.hpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Header file for hash table implementation for LZSS compression
+ *
+ * @date      12 April  2025 \n
+ */
+
 #ifndef HASHTABLE_HPP
 #define HASHTABLE_HPP
 

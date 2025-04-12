@@ -1,3 +1,17 @@
+/**
+ * @file      block_reader.chp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Header file for the block reader implementation for bit packed
+ * decompression output
+ *
+ * @date      12 April  2025 \n
+ */
+
 #ifndef BLOCK_READER_HPP
 #define BLOCK_READER_HPP
 

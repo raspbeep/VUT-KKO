@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-default_bench_filename="512x250.bin"
+default_bench_filename="benchmark/cb.raw"
 # List of files to benchmark when --all is used
 all_bench_files=(
     "benchmark/cb.raw"

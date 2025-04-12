@@ -1,3 +1,16 @@
+/**
+ * @file      block_reader.cpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Block reader implementation for bit packed decompression output
+ *
+ * @date      12 April  2025 \n
+ */
+
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -7,9 +20,9 @@
 #include "token.hpp"
 
 // Internal state for bit reading
-static uint8_t reader_buffer = 0;
-static int reader_bit_position = 8;  // Start as if buffer is empty
-static bool reader_eof = false;
+uint8_t reader_buffer = 0;
+int reader_bit_position = 8;
+bool reader_eof = false;
 
 // Resets the internal state of the bit reader
 void reset_bit_reader_state() {
@@ -244,14 +257,6 @@ end_reading:
   // Reset state after successful read or normal EOF break
   reset_bit_reader_state();
   file.close();
-
-  // Check if file close failed? Optional.
-
-  // Check if EOF was reached (expected) or if some other error occurred
-  // Note: reader_eof might be true if the last read operation hit EOF exactly.
-  // file.eof() might be more reliable after closing.
-  // A more robust check might involve verifying the number of blocks read
-  // matches expected.
 
   return true;
 }

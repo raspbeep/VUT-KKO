@@ -1,3 +1,17 @@
+/**
+ * @file      block_writer.hpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Header file for the block writer implementation for bit packed
+ * compression output
+ *
+ * @date      12 April  2025 \n
+ */
+
 #ifndef BLOCK_WRITER_HPP
 #define BLOCK_WRITER_HPP
 

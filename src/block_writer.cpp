@@ -1,3 +1,16 @@
+/**
+ * @file      block_writer.cpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Block writer implementation for bit packed compression output
+ *
+ * @date      12 April  2025 \n
+ */
+
 #include "block_writer.hpp"
 
 #include <cstdint>
@@ -8,8 +21,8 @@
 #include "block.hpp"
 #include "token.hpp"
 
-static uint8_t writer_buffer = 0;
-static int writer_bit_count = 0;
+uint8_t writer_buffer = 0;
+int writer_bit_count = 0;
 
 void reset_bit_writer_state() {
   writer_buffer = 0;

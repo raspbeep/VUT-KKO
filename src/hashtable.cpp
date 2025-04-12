@@ -1,3 +1,16 @@
+/**
+ * @file      hashtable.cpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Hash table implementation for LZSS compression
+ *
+ * @date      12 April  2025 \n
+ */
+
 #include "hashtable.hpp"
 
 #include <array>

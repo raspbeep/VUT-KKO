@@ -1,3 +1,17 @@
+/**
+ * @file      common.hpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Common header file for LZSS compression with configuration
+ * parameters and default values
+ *
+ * @date      12 April  2025 \n
+ */
+
 #ifndef COMMON_HPP
 #define COMMON_HPP
 

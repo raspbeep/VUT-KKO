@@ -1,3 +1,16 @@
+/**
+ * @file      argparser.cpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Argument parser implementation
+ *
+ * @date      12 April  2025 \n
+ */
+
 #include "argparser.hpp"
 
 #include <argparse.hpp>

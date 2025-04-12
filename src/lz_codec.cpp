@@ -1,3 +1,16 @@
+/**
+ * @file      lz_codec.c
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     LZSS Compressor and Decompressor main file
+ *
+ * @date      12 April  2025 \n
+ */
+
 #include <assert.h>
 #include <math.h>
 

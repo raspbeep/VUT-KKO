@@ -1,3 +1,16 @@
+/**
+ * @file      block.hpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Header file for block class implementation for LZSS compression
+ *
+ * @date      12 April  2025 \n
+ */
+
 #ifndef LZ_BLOCK_HPP
 #define LZ_BLOCK_HPP
 
