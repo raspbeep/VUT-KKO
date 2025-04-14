@@ -26,7 +26,7 @@ A C++ implementation of the LZSS compression and decompression algorithm.
 Compile the source files using your C++ compiler. Example using g++:
 
 ```bash
-g++ src/*.cpp -Iinclude -o lz_codec -std=c++11 -O2
+make all
 ```
 
 ## Usage

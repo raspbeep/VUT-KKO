@@ -55,25 +55,29 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       .default_value<uint32_t>(1)
       .scan<'i', uint32_t>()
       .store_into(image_width)
-      .help("Output file")
+      .help("Image width")
+      .nargs(1)
       .metavar("WIDTH");
   program.add_argument("--block_size")
       .default_value<uint16_t>(DEFAULT_BLOCK_SIZE)
       .scan<'i', uint16_t>()
       .store_into(BLOCK_SIZE)
       .help("Block size (for adaptive mode)")
+      .nargs(1)
       .metavar("BLOCK_SIZE");
   program.add_argument("--offset_bits")
       .default_value<uint16_t>(DEFAULT_OFFSET_BITS)
       .scan<'i', uint16_t>()
       .store_into(OFFSET_BITS)
       .help("Number of bits used for offset in token")
+      .nargs(1)
       .metavar("OFFSET_BITS");
   program.add_argument("--length_bits")
       .default_value<uint16_t>(DEFAULT_LENGTH_BITS)
       .scan<'i', uint16_t>()
       .store_into(LENGTH_BITS)
       .help("Number of bits used for length in token")
+      .nargs(1)
       .metavar("LENGTH_BITS");
 
   try {
