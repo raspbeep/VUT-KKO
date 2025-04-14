@@ -84,9 +84,6 @@ void Image::read_enc_input_file() {
   }
   m_height = static_cast<uint32_t>(temp_height);
 
-  std::cout << "Length of file: " << length << " divided by width: " << m_width
-            << " gives height: " << m_height << std::endl;
-
   uint64_t expected_size = static_cast<uint64_t>(m_width) * m_height;
   if (length < 0 || static_cast<uint64_t>(length) != expected_size) {
     std::ostringstream error_msg;
@@ -360,12 +357,15 @@ bool Image::is_compression_successful() {
 
   size_t size_original = static_cast<size_t>(m_width) * m_height;
 
-  size_t total_size_bytes = static_cast<size_t>(ceil(total_size_bits / 8.0));
+  size_t compressed_size = static_cast<size_t>(ceil(total_size_bits / 8.0));
 
-  std::cout << "--- Compression Stats ---" << std::endl;
+  // std::cout << "--- Compression Stats ---" << std::endl;
   std::cout << "Original Size: " << size_original << " bytes" << std::endl;
-  std::cout << "Compressed Size: " << total_size_bytes << " bytes" << std::endl;
-  return total_size_bytes < size_original;
+  std::cout << "Compressed Size: " << compressed_size << " bytes" << std::endl;
+  std::cout << "Space saving: "
+            << 1 - static_cast<double>(compressed_size) / size_original
+            << std::endl;
+  return compressed_size < size_original;
 }
 
 void Image::reverse_transform() {
