@@ -356,7 +356,3 @@ void Block::print_tokens() {
     }
   }
 }
-
-std::vector<uint8_t>& Block::get_data() {
-  return m_data[m_picked_strategy];
-}

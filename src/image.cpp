@@ -338,9 +338,8 @@ bool Image::is_compression_successful() {
   size_t uncoded = 0;
   for (auto& block : m_blocks) {
     auto strategy = block.m_picked_strategy;
-    for (auto& token : block.m_tokens[strategy]) {
-      token.coded ? coded++ : uncoded++;
-    }
+    coded += block.m_strategy_results[strategy].n_coded_tokens;
+    uncoded += block.m_strategy_results[strategy].n_unencoded_tokens;
   }
   size_t file_header_bits =
       4 * 16 + 1 + 1;  // width, height, offset, length, model, adaptive
