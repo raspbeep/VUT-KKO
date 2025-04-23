@@ -1,6 +1,4 @@
-# Use Google style as a base
 BasedOnStyle: Google
-# Customizations
 IndentWidth: 2
 TabWidth: 4
 UseTab: Never # Use spaces instead of tabs

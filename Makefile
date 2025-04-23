@@ -1,13 +1,10 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -O3 -std=c++23 -Isrc -Iinclude -march=native
+CXXFLAGS = -Wall -Wextra -O1 -std=c++23 -Isrc -Iinclude -march=native
 
-# Source files (only .cpp files)
 SRCS = src/argparser.cpp src/image.cpp src/block.cpp src/hashtable.cpp src/block_reader.cpp src/block_writer.cpp src/lz_codec.cpp
 
-# Object files
 OBJS = $(addprefix $(BUILD_DIR)/,$(notdir $(SRCS:.cpp=.o)))
 
-# Executable name
 TARGET_NAME = lz_codec
 TARGET = $(BUILD_DIR)/$(TARGET_NAME)
 ZIP_NAME = xkrato61.zip
@@ -18,12 +15,10 @@ BUILD_DIR = build
 all: $(TARGET)
 	cp $(TARGET) ./$(TARGET_NAME)
 
-# Compile object files
 $(BUILD_DIR)/%.o: src/%.cpp | $(BUILD_DIR)
 	@echo "Compiling $< -> $@"
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Link the object files to create the executable
 $(TARGET): $(OBJS)
 	@echo "Linking object files -> $(TARGET)"
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $(TARGET)
@@ -40,12 +35,13 @@ run: $(TARGET)
 clean:
 	@echo "Cleaning up..."
 	rm -rf $(BUILD_DIR)
+	rm -rf tmp/
 	rm -f lz_codec
 	rm -f $(ZIP_NAME)
 	@echo "Cleanup complete."
 
 .PHONY: zip
 zip:
-	@echo "Creating zip archive..."
+	@echo "Creating zip archive $(ZIP_NAME)..."
 	zip -r $(ZIP_NAME) src include Makefile report.pdf readme.md
 	@echo "Zip archive created."
