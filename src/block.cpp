@@ -83,8 +83,8 @@ void Block::deserialize() {
       m_decoded_deserialized_data[dest_index] = m_decoded_data[src_index];
     }
   }
-  m_decoded_data.clear();
-  m_decoded_data.shrink_to_fit();
+  // m_decoded_data.clear();
+  // m_decoded_data.shrink_to_fit();
 }
 
 void Block::delta_transform(SerializationStrategy strategy) {
@@ -128,7 +128,7 @@ void Block::mtf(SerializationStrategy strategy) {
     if (dict_it == dictionary.end()) {
       throw std::logic_error(
           "MTF Error: Byte value not found in the 0-255 dictionary. "
-          "Indicates a potential data corruption or logic issue.");
+          "Indicates a potential data corruption.");
     }
 
     uint8_t index =
@@ -300,7 +300,6 @@ void Block::encode_adaptive() {
   size_t best_encoded_size = 0, current_strategy_result;
   bool first = true;
   for (size_t i = HORIZONTAL; i < N_STRATEGIES; i++) {
-    // delta_transform(true);
     encode_using_strategy(static_cast<SerializationStrategy>(i));
     current_strategy_result =
         m_strategy_results[i].n_coded_tokens * TOKEN_CODED_LEN +
@@ -318,6 +317,7 @@ void Block::encode_adaptive() {
 
 // debug compare function, can be called after encoding and decoding took
 // place to check if the original data matches the decoded
+// triggered by enabling DEBUG_COMP_ENC_UNENC
 void Block::compare_encoded_decoded() {
   bool identical = true;
   for (size_t i = 0; i < m_data[m_picked_strategy].size(); i++) {

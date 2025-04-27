@@ -26,7 +26,7 @@
 #include "block_writer.hpp"
 #include "common.hpp"
 
-// Constructor for encoding
+// constructor for encoding
 Image::Image(std::string i_filename, std::string o_filename, uint32_t width,
              bool adaptive, bool model)
     : m_input_filename(i_filename),
@@ -42,7 +42,7 @@ Image::Image(std::string i_filename, std::string o_filename, uint32_t width,
   }
 }
 
-// Constructor for decoding
+// constructor for decoding
 Image::Image(std::string i_filename, std::string o_filename)
     : m_input_filename(i_filename), m_output_filename(o_filename) {
   // read the input file and store it in m_data vector
@@ -175,7 +175,7 @@ void Image::encode_blocks() {
 #endif
   }
 
-  // we will not need the m_data anymore
+  // m_data will not be needed anymore
   m_data.clear();
 }
 
@@ -250,12 +250,11 @@ void Image::compose_image() {
     uint16_t n_blocks_cols = (m_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
     size_t block_index = 0;
 
-    // Iterate Row by Row, then Column by Column
     for (uint16_t block_r = 0; block_r < n_blocks_rows; ++block_r) {
-      uint16_t start_row = block_r * BLOCK_SIZE;  // Correct row offset
+      uint16_t start_row = block_r * BLOCK_SIZE;
 
       for (uint16_t block_c = 0; block_c < n_blocks_cols; ++block_c) {
-        uint16_t start_col = block_c * BLOCK_SIZE;  // Correct col offset
+        uint16_t start_col = block_c * BLOCK_SIZE;
 
         if (block_index >= m_blocks.size()) {
           throw std::runtime_error(
@@ -264,22 +263,18 @@ void Image::compose_image() {
         }
 
         Block& current_block = m_blocks[block_index];
-        // Ensure you get the final deserialized data if applicable
         const std::vector<uint8_t>& block_data =
             current_block.get_decoded_data();
         uint16_t current_block_height = current_block.m_height;
         uint16_t current_block_width = current_block.m_width;
 
-        // ... (check block_data size against block dimensions) ...
-
         size_t block_data_idx = 0;
-        // Place data into the final image using correct destination indices
+        // place data into the final image using correct destination indices
         for (uint16_t r = 0; r < current_block_height; ++r) {
           for (uint16_t c = 0; c < current_block_width; ++c) {
             size_t dest_row = start_row + r;
             size_t dest_col = start_col + c;
 
-            // Use correct image dimensions for bounds check
             if (dest_row >= m_height || dest_col >= m_width) {
               throw std::runtime_error(
                   "Error composing image: Calculated destination index out "
@@ -342,7 +337,10 @@ bool Image::is_compression_successful() {
     uncoded += block.m_strategy_results[strategy].n_unencoded_tokens;
   }
   size_t file_header_bits =
-      4 * 16 + 1 + 1;  // width, height, offset, length, model, adaptive
+      32 + 32 + 16 + 16 + 1 +
+      1;  // width, height, offset, length, model, adaptive
+
+  // block size
   if (m_adaptive) {
     file_header_bits += 16;
   }
@@ -400,23 +398,17 @@ void Image::create_single_block() {
 
 void Image::create_multiple_blocks() {
   m_blocks.clear();
-  // Correctly calculate row/column block counts
   uint16_t n_blocks_rows = (m_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
   uint16_t n_blocks_cols = (m_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
   m_blocks.reserve(static_cast<size_t>(n_blocks_rows) * n_blocks_cols);
 
-  // Iterate Row by Row, then Column by Column (more conventional)
   for (uint16_t block_r = 0; block_r < n_blocks_rows; ++block_r) {
-    // Calculate row offset based on row index
     uint16_t start_row = block_r * BLOCK_SIZE;
-    // Correctly calculate block height using m_height
     uint16_t current_block_height =
         std::min<uint16_t>(BLOCK_SIZE, m_height - start_row);
 
     for (uint16_t block_c = 0; block_c < n_blocks_cols; ++block_c) {
-      // Calculate column offset based on column index
       uint16_t start_col = block_c * BLOCK_SIZE;
-      // Correctly calculate block width using m_width
       uint16_t current_block_width =
           std::min<uint16_t>(BLOCK_SIZE, m_width - start_col);
 
@@ -424,13 +416,10 @@ void Image::create_multiple_blocks() {
       block_data.reserve(static_cast<size_t>(current_block_width) *
                          current_block_height);
 
-      // Extract data using correct dimensions and offsets
       for (uint16_t r = start_row; r < start_row + current_block_height; ++r) {
         for (uint16_t c = start_col; c < start_col + current_block_width; ++c) {
-          // Index into original image data
           size_t index = static_cast<size_t>(r) * m_width + c;
           if (index >= m_data.size()) {
-            // Add robust error handling just in case
             throw std::runtime_error(
                 "Error: Calculated index out of bounds during block "
                 "creation.");
@@ -439,7 +428,6 @@ void Image::create_multiple_blocks() {
         }
       }
 
-      // Verify extracted data size (optional but good practice)
       if (block_data.size() !=
           static_cast<size_t>(current_block_width) * current_block_height) {
         std::cerr << "Error: Internal logic error during block creation. "
@@ -451,12 +439,11 @@ void Image::create_multiple_blocks() {
         throw std::runtime_error("Block data size mismatch during creation.");
       }
 
-      // Create block with correct data and dimensions
       m_blocks.emplace_back(std::move(block_data), current_block_width,
                             current_block_height);
     }
   }
-  // Verify total number of blocks created (optional)
+
   if (m_blocks.size() != static_cast<size_t>(n_blocks_rows) * n_blocks_cols) {
     std::cerr << "Warning: Number of created blocks (" << m_blocks.size()
               << ") does not match expected count ("

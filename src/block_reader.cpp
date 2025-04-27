@@ -19,12 +19,12 @@
 #include "block.hpp"
 #include "token.hpp"
 
-// Internal state for bit reading
+// internal state for bit reading
 uint8_t reader_buffer = 0;
 int reader_bit_position = 8;
 bool reader_eof = false;
 
-// Resets the internal state of the bit reader
+// resets the internal state of the bit reader
 void reset_bit_reader_state() {
   reader_buffer = 0;
   reader_bit_position = 8;
@@ -44,7 +44,7 @@ bool read_bit_from_file(std::ifstream& file, bool& bitValue) {
     reader_bit_position = 0;
   }
 
-  // Extract the bit
+  // extract the bit
   bitValue = (reader_buffer >> (7 - reader_bit_position)) & 1;
   reader_bit_position++;
 
@@ -85,7 +85,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
   reset_bit_reader_state();
   uint8_t successful_compression;
   try {
-    // Read header not bit-packed for consistency
+    // read header not bit-packed for consistency
     file.read(reinterpret_cast<char*>(&successful_compression),
               sizeof(successful_compression));
     file.read(reinterpret_cast<char*>(&width), sizeof(width));
@@ -111,7 +111,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
         throw std::runtime_error(
             "Failed to read block size for adaptive mode.");
       }
-      // It's safer to check if the read value fits in uint16_t
+
       if (temp_block_size > UINT16_MAX) {
         throw std::runtime_error(
             "Block size read from file exceeds uint16_t max.");
@@ -135,7 +135,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
 
     for (uint16_t row = 0; row < n_row_blocks; row++) {
       for (uint16_t col = 0; col < n_col_blocks; col++) {
-        // Calculate the current block's width and height
+        // calculate the current block's width and height
         uint32_t current_block_width = width;
         uint32_t current_block_height = height;
         if (adaptive) {
@@ -178,7 +178,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
           // read tokens for the block
           token_t token;
           bool flag_bit;
-          // Read coded flag (1 bit)
+          // read coded flag (1 bit)
           if (!read_bit_from_file(file, flag_bit)) {
             // EOF hit unexpectedly before the block was fully decoded
             std::cerr << "Warning: Unexpected EOF encountered while reading "
@@ -191,7 +191,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
           }
           token.coded = flag_bit;
 
-          // Read token data
+          // read token data
           if (token.coded) {
             uint32_t temp_offset, temp_length;
             // Coded token: read offset and length
@@ -210,12 +210,12 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
               goto end_reading;
             }
             token.data.length = static_cast<uint16_t>(temp_length);
-            // Increment decoded bytes count
+            // increment decoded bytes count
             total_decoded_bytes_for_block +=
                 (token.data.length + MIN_CODED_LEN);
           } else {
             uint32_t temp_value;
-            // Uncoded token: read ASCII value (8 bits)
+            // uncoded token: read ASCII value (8 bits)
             if (!read_bits_from_file(file, 8, temp_value)) {
               std::cerr << "Warning: EOF encountered while reading value for "
                            "uncoded token in block ("
@@ -223,45 +223,42 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
               goto end_reading;
             }
             token.data.value = static_cast<uint8_t>(temp_value);
-            // Increment decoded bytes count
+            // increment decoded bytes count
             total_decoded_bytes_for_block++;
           }
 
-          // If we successfully read all parts of the token, add it
+          // if we successfully read all parts of the token, add it
           block.m_tokens[strategy].push_back(token);
-        }  // End while (total_decoded_bytes_for_block < expected_decoded_bytes)
+        }
 
-        // Sanity check after loop
+        // sanity check after loop
         if (total_decoded_bytes_for_block != expected_decoded_bytes) {
           std::cerr << "Warning: Block (" << row << "," << col
                     << ") decoding finished, but byte count mismatch. Expected "
                     << expected_decoded_bytes << ", got "
                     << total_decoded_bytes_for_block << "." << std::endl;
-          // This might happen if the last token caused an overshoot,
-          // which indicates an encoding error or file corruption.
         }
 
-        blocks.push_back(std::move(block));  // Use move for efficiency
-      }  // End for col
-    }  // End for row
+        blocks.push_back(std::move(block));
+      }
+    }
 
   } catch (const std::exception& e) {
     std::cerr << "Error during file reading: " << e.what() << std::endl;
-    reset_bit_reader_state();  // Reset state on error
+    reset_bit_reader_state();  // reset state on error
     file.close();
     return false;
   }
 
 end_reading:
 
-  // Reset state after successful read or normal EOF break
+  // reset state after successful read or normal EOF break
   reset_bit_reader_state();
   file.close();
 
   return true;
 }
 
-// Function to print tokens (same as before)
 void printTokens(const std::vector<token_t>& tokens) {
   std::cout << "Total tokens: " << tokens.size() << std::endl;
   std::cout << "------------------------------" << std::endl;

@@ -50,7 +50,10 @@ void print_final_stats(Image& img) {
     }
   }
   size_t file_header_bits =
-      4 * 16 + 1 + 1;  // width, height, offset, length, model, adaptive
+      32 + 32 + 16 + 16 + 1 +
+      1;  // width, height, offset, length, model, adaptive
+
+  // block size
   if (img.is_adaptive()) {
     file_header_bits += 16;
   }

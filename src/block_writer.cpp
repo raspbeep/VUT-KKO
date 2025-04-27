@@ -70,11 +70,11 @@ void flush_bits_to_file(std::ofstream& file) {
                 << std::endl;
     }
   }
-  // Reset state after flushing
+  // reset state after flushing
   reset_bit_writer_state();
 }
 
-// Function to write tokens to binary file with bit packing
+// function to write tokens to binary file with bit packing
 bool write_blocks_to_stream(const std::string& filename, uint32_t width,
                             uint32_t height, uint16_t offset_length,
                             uint16_t length_bits, bool adaptive, bool model,
@@ -114,12 +114,12 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
         write_bits_to_file(file, block.m_picked_strategy, 2);
       }
 
-      // Write tokens with bit packing using functional helpers
+      // write tokens with bit packing using functional helpers
       for (const auto& token : block.m_tokens[block.m_picked_strategy]) {
         // Write coded flag (1 bit)
         write_bit_to_file(file, token.coded);
 
-        // Write token data
+        // write token data
         if (token.coded) {
           // Coded token: write offset and length with specified bit lengths
           if (offset_length > 16 || length_bits > 16) {
@@ -129,18 +129,18 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
           write_bits_to_file(file, token.data.offset, offset_length);
           write_bits_to_file(file, token.data.length, length_bits);
         } else {
-          // Uncoded token: write ASCII value (8 bits)
+          // uncoded token: write ASCII value (8 bits)
           write_bits_to_file(file, token.data.value, 8);
         }
       }
     }
 
-    // Flush any remaining bits
+    // flush any remaining bits
     flush_bits_to_file(file);  // Also resets state
 
   } catch (const std::exception& e) {
     std::cerr << "Error during file writing: " << e.what() << std::endl;
-    // Ensure state is reset even on error before closing
+    // ensure state is reset even on error before closing
     reset_bit_writer_state();
     file.close();
     return false;

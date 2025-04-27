@@ -31,11 +31,11 @@ uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
     shift_left += 8;
   }
 
-  // Simple Mixing (Knuth's multiplicative hash constant)
+  // uimple Mixing (Knuth's multiplicative hash constant)
   k1 *= 0x9E3779B9;
   k1 ^= k1 >> 16;
 
-  // Use bitwise AND to get index in the range of the hash table size
+  // use bitwise AND to get index in the range of the hash table size
   return k1 & TABLE_MASK;
 }
 
@@ -129,8 +129,9 @@ search_result HashTable::search(std::vector<uint8_t>& data,
     }
     current = current->next;
   }
-  return result;
+
   // if no match was found, return the default result (found = false)
+  return result;
 }
 
 uint16_t HashTable::match_length(std::vector<uint8_t>& data,
@@ -147,7 +148,7 @@ uint16_t HashTable::match_length(std::vector<uint8_t>& data,
       break;
     }
 
-    // Compare characters
+    // compare characters
     if (data[cmp1_index] == data[cmp2_index]) {
       current_match_length++;
     } else {
