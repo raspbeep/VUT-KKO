@@ -28,7 +28,7 @@
 // minimum encode length
 #define MIN_CODED_LEN 3
 
-#define DEFAULT_BLOCK_SIZE 16
+#define DEFAULT_BLOCK_SIZE 32
 #define DEFAULT_OFFSET_BITS 8
 #define DEFAULT_LENGTH_BITS 10
 
