@@ -33,7 +33,8 @@ Image::Image(std::string i_filename, std::string o_filename, uint32_t width,
       m_output_filename(o_filename),
       m_width(width),
       m_adaptive(adaptive),
-      m_model(model) {
+      m_model(model),
+      m_binary_only(true) {
   // read the input file and store it in m_data vector
   read_enc_input_file();
   if (m_data.size() != static_cast<size_t>(m_width) * m_height) {
@@ -60,7 +61,8 @@ void Image::read_dec_input_file() {
   // store all the params from header in the class variables
 
   read_blocks_from_file(m_input_filename, m_width, m_height, OFFSET_BITS,
-                        LENGTH_BITS, m_adaptive, m_model, m_blocks);
+                        LENGTH_BITS, m_adaptive, m_model, m_blocks,
+                        m_binary_only);
 }
 
 void Image::read_enc_input_file() {
@@ -95,8 +97,37 @@ void Image::read_enc_input_file() {
   }
 
   m_data.reserve(expected_size);
-  m_data.assign((std::istreambuf_iterator<char>(file)),
-                std::istreambuf_iterator<char>());
+  m_data.clear();
+  char byte;
+  uint8_t byte8;
+  while (file.get(byte)) {
+    byte8 = static_cast<uint8_t>(byte);
+    if (byte8 != 0 && byte8 != 0xFF) {
+      m_binary_only = false;
+    }
+    m_data.push_back(byte8);
+  }
+
+  if (m_binary_only) {
+    // compress eights of bytes in m_data into one byte
+    std::vector<uint8_t> compressed_data;
+    compressed_data.reserve(m_data.size() / 8);
+    for (size_t i = 0; i < m_data.size(); i += 8) {
+      uint8_t packed_byte = 0;
+      for (size_t j = 0; j < 8 && i + j < m_data.size(); ++j) {
+        if (m_data[i + j] == 0xFF) {
+          packed_byte |= (1 << (7 - j));
+        }
+      }
+      compressed_data.push_back(packed_byte);
+    }
+    m_data.clear();
+    m_data.shrink_to_fit();
+    m_data = compressed_data;
+
+    expected_size = (static_cast<uint64_t>(m_width) * m_height + 7) / 8;
+    m_width = (m_width + 7) / 8;
+  }
 
   if (m_data.size() != expected_size) {
     std::ostringstream error_msg;
@@ -108,6 +139,25 @@ void Image::read_enc_input_file() {
 }
 
 void Image::write_dec_output_file() {
+  if (m_binary_only) {
+    std::vector<uint8_t> decompressed_data;
+    bool finished_unpacking = false;
+
+    for (uint8_t compressed_byte : m_data) {
+      if (finished_unpacking)
+        break;
+      for (int j = 7; j >= 0; --j) {
+        if ((compressed_byte >> j) & 1) {
+          decompressed_data.push_back(0xFF);
+        } else {
+          decompressed_data.push_back(0x00);
+        }
+      }
+    }
+
+    m_data = decompressed_data;
+  }
+
   // write the decoded data to the output file
   std::ofstream o_file_handle(m_output_filename, std::ios::binary);
   if (!o_file_handle) {
@@ -181,7 +231,8 @@ void Image::encode_blocks() {
 
 void Image::write_blocks() {
   write_blocks_to_stream(m_output_filename, m_width, m_height, OFFSET_BITS,
-                         LENGTH_BITS, m_adaptive, m_model, m_blocks);
+                         LENGTH_BITS, m_adaptive, m_model, m_blocks,
+                         m_binary_only);
 }
 
 void Image::decode_blocks() {

@@ -37,6 +37,6 @@
 bool write_blocks_to_stream(const std::string& filename, uint32_t width,
                             uint32_t height, uint16_t offset_bits,
                             uint16_t length_bits, bool adaptive, bool model,
-                            const std::vector<Block>& blocks);
+                            const std::vector<Block>& blocks, bool binary_only);
 
 #endif  // BLOCK_WRITER_HPP

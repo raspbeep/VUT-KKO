@@ -163,6 +163,7 @@ class Image {
   bool m_model;
   std::vector<uint8_t> m_data;    // Holds raw data for encoding or decoded data
   std::vector<token_t> m_tokens;  // Potentially unused if blocks hold tokens
+  bool m_binary_only;
 
   public:
   std::vector<Block> m_blocks;  // Holds the blocks for processing

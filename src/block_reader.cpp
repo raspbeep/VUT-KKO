@@ -72,7 +72,7 @@ bool read_bits_from_file(std::ifstream& file, int numBits, uint32_t& value) {
 bool read_blocks_from_file(const std::string& filename, uint32_t& width,
                            uint32_t& height, uint16_t& offset_bits,
                            uint16_t& length_bits, bool& adaptive, bool& model,
-                           std::vector<Block>& blocks) {
+                           std::vector<Block>& blocks, bool& binary_only) {
   blocks.clear();
   std::ifstream file(filename, std::ios::binary);
 
@@ -102,6 +102,10 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
     }
 
     if (!read_bit_from_file(file, adaptive)) {
+      throw std::runtime_error("Failed to read adaptive flag.");
+    }
+
+    if (!read_bit_from_file(file, binary_only)) {
       throw std::runtime_error("Failed to read adaptive flag.");
     }
 
