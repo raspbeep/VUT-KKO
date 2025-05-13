@@ -89,7 +89,7 @@ search_result HashTable::search(std::vector<uint8_t>& data,
     for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
       uint8_t cmp1 = data[current_pos + i];
       uint8_t cmp2 = data[current->position + i];
-      if (cmp1 != cmp2) {
+      if (__builtin_expect(cmp1 != cmp2, 0)) {
         // hash collision! hashes matched but the data is different
         collision_count++;
 #if DEBUG_PRINT_COLLISIONS
@@ -118,7 +118,7 @@ search_result HashTable::search(std::vector<uint8_t>& data,
         break;
       }
     }
-    if (!match) {
+    if (__builtin_expect(!match, 0)) {
       continue;
     }
     uint16_t current_match_length = match_length(data, current_pos, current);
@@ -216,7 +216,7 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
   std::cout << std::endl;
 #endif
 
-  if (current == nullptr) {
+  if (__builtin_expect(current == nullptr, 0)) {
     // this should never happen
     throw std::runtime_error("Item not found in the hash table");
     return;

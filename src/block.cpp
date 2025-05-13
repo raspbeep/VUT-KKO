@@ -72,15 +72,16 @@ void Block::deserialize() {
   m_decoded_deserialized_data.resize(m_width * m_height);
 
   for (size_t i = 0; i < m_height; ++i) {
+    size_t dest_index_no_j = i * m_width;
     for (size_t j = 0; j < m_width; ++j) {
       size_t src_index = j * m_height + i;
-      size_t dest_index = i * m_width + j;
-      if (src_index >= m_decoded_data.size()) {
+      if (__builtin_expect(src_index >= m_decoded_data.size(), 0)) {
         throw std::runtime_error(
             "Deserialize error: Source index out of bounds.");
       }
 
-      m_decoded_deserialized_data[dest_index] = m_decoded_data[src_index];
+      m_decoded_deserialized_data[dest_index_no_j + j] =
+          m_decoded_data[src_index];
     }
   }
   // m_decoded_data.clear();
@@ -263,7 +264,8 @@ void Block::encode_using_strategy(SerializationStrategy strategy) {
     // search for the longest prefix in the hash table
     search_result result = hash_table.search(m_data[strategy], position);
     next_pos = position + result.length;
-    if (result.found) {
+
+    if (__builtin_expect(result.found, 1)) {
       next_pos += MIN_CODED_LEN;
       // found a match, push the token
       insert_token(
