@@ -15,7 +15,7 @@ STATS_ORIGINALSIZE=()
 STATS_COMPRESSEDSIZE=()
 STATS_EFFICIENCY=()
 STATS_COMPRESSTIME=()
-STATS_DECOMPRESSTIME=() # New array for decompression times
+STATS_DECOMPRESSTIME=()
 
 TIMEFORMAT=%R
 
@@ -24,17 +24,14 @@ echo -e "${BLUE}Running tests for lz_codec${NC}"
 echo "------------------------------------------"
 
 POSSIBLEFLAGS=("" "-m" "-a" "-m -a")
-ALLFILES_COLLECT=() # Use a different name for collection to avoid confusion if script is re-run in same shell
+ALLFILES_COLLECT=()
 
-# First, collect all unique .raw files from benchmark directory
 for file_path in benchmark/*.raw
 do
-    # Check if file exists to prevent errors if no .raw files are present
     if [ ! -f "$file_path" ]; then
         echo -e "${ORANGE}Warning: No .raw files found in benchmark/ directory, or benchmark/ directory does not exist.${NC}"
         break
     fi
-    # add the file to the list of all files if it is not already there
     is_present=0
     for existing_file in "${ALLFILES_COLLECT[@]}"; do
         if [[ "$existing_file" == "$file_path" ]]; then
@@ -52,8 +49,7 @@ if [ ${#ALLFILES_COLLECT[@]} -eq 0 ]; then
     exit 1
 fi
 
-
-for file in "${ALLFILES_COLLECT[@]}" # Iterate over unique collected files
+for file in "${ALLFILES_COLLECT[@]}"
 do
     filename_only="${file##*/}"
     width_from_filename="${filename_only%%-*}"
@@ -61,14 +57,9 @@ do
     if ! [[ "$width_from_filename" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}Error: Could not extract a valid width from filename ${ORANGE}${filename_only}${RED}. Expected format: width-name.raw${NC}"
         echo "Skipping tests for this file: $file"
-        # Add placeholders for all flags for this skipped file to keep table structure if absolutely needed
-        # For simplicity here, we'll just skip and table might look irregular or adapt printing.
-        # The current STATS addition strategy relies on processing each file an flag combo.
-        # To maintain table regularity for printing loops later, we'd add placeholders here.
-        # However, the problem is more with the `stat_index` calculation in print if some `ALLFILES_COLLECT` are skipped.
-        # For now, the original script did not add placeholders for skipped files, so we continue this.
-        # The final print loop uses `ALLFILES_COLLECT` length, so if a file is fully skipped, that row won't appear.
-        # This is acceptable.
+        # To maintain table regularity if this file was critical for stat_index,
+        # one might add placeholder stats for all its flags here.
+        # For simplicity, we skip, and the print loop's stat_index relies on actual entries.
         echo "------------------------------------------"
         continue
     fi
@@ -86,41 +77,39 @@ do
 
         ORIGINALSIZE=$(stat -c%s "$file")
 
-        # Initialize current stats for this iteration
         current_comp_size="N/A"
         current_efficiency="N/A"
         current_comp_time="Fail"
-        current_decomp_time="N/A" # Will be 'Fail' if compress fails or decomp fails
+        current_decomp_time="N/A"
 
-        # Compression
         COMPRESSTIME_RAW=$( { time ./lz_codec -c -i "$file" -o compressed.tmp -w "$width_from_filename" $flag; } 2>&1 )
         COMPRESS_EXIT_CODE=$?
 
         if [ $COMPRESS_EXIT_CODE -ne 0 ]; then
             echo -e "${RED}Test failed on ${ORANGE}execution of compression${NC}"
             echo -e "${ORANGE}lz_codec -c output:\n$COMPRESSTIME_RAW${NC}"
-            current_decomp_time="N/A" # Compression failed, so no decompression attempt
+            current_decomp_time="N/A"
         else
             current_comp_time=$(echo "$COMPRESSTIME_RAW" | tail -n 1)
             if [ -f "compressed.tmp" ]; then
                 current_comp_size=$(stat -c%s "compressed.tmp")
-                if [[ "$ORIGINALSIZE" -ne 0 ]]; then # Avoid division by zero
-                    if [[ "$current_comp_size" =~ ^[0-9]+$ ]]; then # Ensure comp_size is a number
+                if [[ "$ORIGINALSIZE" -ne 0 ]]; then
+                    if [[ "$current_comp_size" =~ ^[0-9]+$ ]]; then
                          current_efficiency=$(echo "scale=2; $current_comp_size*8/$ORIGINALSIZE" | bc)
                     else
-                        current_efficiency="Error" # Should not happen if stat worked
+                        current_efficiency="Error"
                     fi
-                else # Original size is 0
-                    current_efficiency="Inf" # Or "N/A" or "0.00" depending on preference
+                else
+                    current_efficiency="Inf"
                 fi
             else
                 echo -e "${RED}Error: compressed.tmp not created despite compression command success.${NC}"
                 current_comp_size="Error"
                 current_efficiency="Error"
+                current_comp_time="Error" # Mark time as error too if output file missing
             fi
 
-            # Decompression
-            current_decomp_time="Fail" # Default if decompression fails
+            current_decomp_time="Fail"
             DECOMP_OUTPUT_AND_TIME=$( { time ./lz_codec -d -i compressed.tmp -o decompressed.tmp $flag; } 2>&1 )
             DECOMP_EXIT_CODE=$?
 
@@ -130,23 +119,27 @@ do
             else
                 current_decomp_time=$(echo "$DECOMP_OUTPUT_AND_TIME" | tail -n 1)
                 
-                # Diff check (only if compression and decompression commands were successful)
                 if [ -f "decompressed.tmp" ]; then
                     diff "$file" decompressed.tmp > /dev/null
                     DIFF_EXIT_CODE=$?
                     if [ $DIFF_EXIT_CODE -eq 0 ]; then
-                        TESTSPASSED=$((TESTSPASSED+1))
-                        echo -e "${GREEN}Test passed${NC}"
+                        # Only count as passed if all steps (compress exec, decompress exec, diff) were OK
+                        if [ $COMPRESS_EXIT_CODE -eq 0 ] && [ $DECOMP_EXIT_CODE -eq 0 ]; then
+                           TESTSPASSED=$((TESTSPASSED+1))
+                           echo -e "${GREEN}Test passed${NC}"
+                        else
+                           # This case should ideally be caught by prior error messages
+                           echo -e "${RED}Test failed (content diff OK, but a prior execution step failed)${NC}"
+                        fi
                     else
                         echo -e "${RED}Test failed on ${ORANGE}content diff${NC}"
                     fi
                 else
                     echo -e "${RED}Test failed: decompressed.tmp not found for diff.${NC}"
                 fi
-            fi # End decompression execution check
-        fi # End compression execution check
+            fi
+        fi
         
-        # Add stats for this iteration
         STATS_ORIGINALSIZE+=("$ORIGINALSIZE")
         STATS_COMPRESSEDSIZE+=("$current_comp_size")
         STATS_EFFICIENCY+=("$current_efficiency")
@@ -154,8 +147,8 @@ do
         STATS_DECOMPRESSTIME+=("$current_decomp_time")
         
         echo "------------------------------------------"
-    done # End flag loop
-done # End file loop
+    done
+done
 
 echo "Tests run: $TESTSRUN"
 echo "Tests passed: $TESTSPASSED"
@@ -167,21 +160,14 @@ printf "%-30s %-10s %-12s %-12s %-10s %-12s %-12s\n" "File" "Flags" "Orig. size"
 num_flags=${#POSSIBLEFLAGS[@]}
 if [ $num_flags -eq 0 ]; then num_flags=1; fi
 
-actual_stat_entries=${#STATS_ORIGINALSIZE[@]} # Number of actual entries collected
+actual_stat_entries=${#STATS_ORIGINALSIZE[@]}
 
-# The number of rows should be actual_stat_entries / num_flags if all files completed all flags
-# Or, more simply, iterate based on ALLFILES_COLLECT and POSSIBLEFLAGS, using the stat_index
 for (( i=0; i<${#ALLFILES_COLLECT[@]}; i++ )); do
     for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
         stat_index=$((i * num_flags + j))
         
-        # Check if stat_index is within bounds of collected stats
         if [ "$stat_index" -ge "$actual_stat_entries" ]; then
-            # This case should ideally not be hit if placeholders are added for all file/flag combos processed
-            # Or if a file was fully skipped due to width extraction error, this combo won't be processed.
-            # For robustness, we can check.
-            # echo "Warning: stat_index $stat_index out of bounds ($actual_stat_entries)"
-            continue # Or print N/A fields
+            continue
         fi
 
         file_display_name="${ALLFILES_COLLECT[$i]##*/}"
@@ -216,7 +202,7 @@ if [ "$1" == "--latex" ]; then
     for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
         flag_display_name="${POSSIBLEFLAGS[$j]}"
         if [ -z "$flag_display_name" ]; then flag_display_name="No flags"; fi
-        flag_display_name="${flag_display_name//_/\\_}" # Basic LaTeX escape
+        flag_display_name="${flag_display_name//_/\\_}" 
         if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$flag_display_name \\\\"; else echo -n "$flag_display_name & "; fi
     done
     echo ""; echo "\hline"
@@ -235,7 +221,7 @@ if [ "$1" == "--latex" ]; then
     echo "\hline"
     echo -n "\textbf{Average} & "
     for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
-        AVGPERFLAG=0; COUNT=0
+        AVGPERFLAG=0.0; COUNT=0
         for (( i=0; i<${#ALLFILES_COLLECT[@]}; i++ )); do
             stat_index=$((i * num_flags + j))
             if [ "$stat_index" -lt "$actual_stat_entries" ] && [[ "${STATS_EFFICIENCY[$stat_index]}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
@@ -258,7 +244,7 @@ if [ "$1" == "--latex" ]; then
     echo "\centering"
     echo "\begin{tabular}{|l|*{${#POSSIBLEFLAGS[@]}}{c|}}"
     echo "\hline"
-    echo -n "File (seconds) & " # Clarified unit in header
+    echo -n "File (seconds) & "
     for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
         flag_display_name="${POSSIBLEFLAGS[$j]}"
         if [ -z "$flag_display_name" ]; then flag_display_name="No flags"; fi
@@ -273,59 +259,12 @@ if [ "$1" == "--latex" ]; then
         for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
             stat_index=$((i * num_flags + j))
             value_to_print="N/A"
-            if [ "$stat_index" -lt "$actual_stat_entries" ]; then value_to_print="${STATS_COMPRESSTIME[$stat_index]} s"; fi
-            if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$value_to_print \\\\"; else echo -n "$value_to_print & "; fi
-        done
-        echo ""; echo "\hline"
-    done
-    echo "\hline"
-    echo -n "\textbf{Average} & "
-    for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
-        AVGPERFLAG=0; COUNT=0
-        for (( i=0; i<${#ALLFILES_COLLECT[@]}; i++ )); do
-            stat_index=$((i * num_flags + j))
-            if [ "$stat_index" -lt "$actual_stat_entries" ] && [[ "${STATS_COMPRESSTIME[$stat_index]}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-                AVGPERFLAG=$(echo "$AVGPERFLAG + ${STATS_COMPRESSTIME[$stat_index]}" | bc -l)
-                COUNT=$((COUNT + 1))
-            fi
-        done
-        if [ $COUNT -gt 0 ]; then AVGPERFLAG=$(printf "%.2f" $(echo "$AVGPERFLAG / $COUNT" | bc -l)); else AVGPERFLAG="N/A"; fi
-        if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$AVGPERFLAG s\\\\"; else echo -n "$AVGPERFLAG s& "; fi
-    done
-    echo ""; echo "\hline"
-    echo "\end{tabular}"
-    echo "\caption{Compression time (seconds) for different files and flags.}"
-    echo "\label{tab:compressiontime}"
-    echo "\end{table}"
-    echo ""
-
-    # --- Decompression Time Table (NEW) ---
-    echo "\begin{table}[H]"
-    echo "\centering"
-    echo "\begin{tabular}{|l|*{${#POSSIBLEFLAGS[@]}}{c|}}"
-    echo "\hline"
-    echo -n "File (seconds) & " # Clarified unit in header
-    for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
-        flag_display_name="${POSSIBLEFLAGS[$j]}"
-        if [ -z "$flag_display_name" ]; then flag_display_name="No flags"; fi
-        flag_display_name="${flag_display_name//_/\\_}"
-        if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$flag_display_name \\\\"; else echo -n "$flag_display_name & "; fi
-    done
-    echo ""; echo "\hline"
-    for (( i=0; i<${#ALLFILES_COLLECT[@]}; i++ )); do
-        filename_display="${ALLFILES_COLLECT[$i]##*/}"
-        filename_display="${filename_display//_/\\_}"
-        echo -n "$filename_display & "
-        for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
-            stat_index=$((i * num_flags + j))
-            value_to_print="N/A"
-            # Ensure value exists and add "s" for seconds, handle "Fail" etc.
-            if [ "$stat_index" -lt "$actual_stat_entries" ]; then
-                decomp_time_val="${STATS_DECOMPRESSTIME[$stat_index]}"
-                if [[ "$decomp_time_val" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-                    value_to_print="$decomp_time_val s"
+            if [ "$stat_index" -lt "$actual_stat_entries" ]; then 
+                comp_time_val="${STATS_COMPRESSTIME[$stat_index]}"
+                if [[ "$comp_time_val" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                    value_to_print="$comp_time_val s"
                 else
-                    value_to_print="$decomp_time_val" # Print "Fail", "N/A" as is
+                    value_to_print="$comp_time_val" 
                 fi
             fi
             if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$value_to_print \\\\"; else echo -n "$value_to_print & "; fi
@@ -335,7 +274,60 @@ if [ "$1" == "--latex" ]; then
     echo "\hline"
     echo -n "\textbf{Average} & "
     for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
-        AVGPERFLAG=0; COUNT=0
+        AVGPERFLAG=0.0; COUNT=0
+        for (( i=0; i<${#ALLFILES_COLLECT[@]}; i++ )); do
+            stat_index=$((i * num_flags + j))
+            if [ "$stat_index" -lt "$actual_stat_entries" ] && [[ "${STATS_COMPRESSTIME[$stat_index]}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                AVGPERFLAG=$(echo "$AVGPERFLAG + ${STATS_COMPRESSTIME[$stat_index]}" | bc -l)
+                COUNT=$((COUNT + 1))
+            fi
+        done
+        if [ $COUNT -gt 0 ]; then AVGPERFLAG=$(printf "%.3f" $(echo "$AVGPERFLAG / $COUNT" | bc -l)); else AVGPERFLAG="N/A"; fi # Times with .3f
+        if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$AVGPERFLAG s\\\\"; else echo -n "$AVGPERFLAG s& "; fi
+    done
+    echo ""; echo "\hline"
+    echo "\end{tabular}"
+    echo "\caption{Compression time (seconds) for different files and flags.}"
+    echo "\label{tab:compressiontime}"
+    echo "\end{table}"
+    echo ""
+
+    # --- Decompression Time Table ---
+    echo "\begin{table}[H]"
+    echo "\centering"
+    echo "\begin{tabular}{|l|*{${#POSSIBLEFLAGS[@]}}{c|}}"
+    echo "\hline"
+    echo -n "File (seconds) & " 
+    for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
+        flag_display_name="${POSSIBLEFLAGS[$j]}"
+        if [ -z "$flag_display_name" ]; then flag_display_name="No flags"; fi
+        flag_display_name="${flag_display_name//_/\\_}"
+        if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$flag_display_name \\\\"; else echo -n "$flag_display_name & "; fi
+    done
+    echo ""; echo "\hline"
+    for (( i=0; i<${#ALLFILES_COLLECT[@]}; i++ )); do
+        filename_display="${ALLFILES_COLLECT[$i]##*/}"
+        filename_display="${filename_display//_/\\_}"
+        echo -n "$filename_display & "
+        for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
+            stat_index=$((i * num_flags + j))
+            value_to_print="N/A"
+            if [ "$stat_index" -lt "$actual_stat_entries" ]; then
+                decomp_time_val="${STATS_DECOMPRESSTIME[$stat_index]}"
+                if [[ "$decomp_time_val" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                    value_to_print="$decomp_time_val s"
+                else
+                    value_to_print="$decomp_time_val"
+                fi
+            fi
+            if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$value_to_print \\\\"; else echo -n "$value_to_print & "; fi
+        done
+        echo ""; echo "\hline"
+    done
+    echo "\hline"
+    echo -n "\textbf{Average} & "
+    for (( j=0; j<${#POSSIBLEFLAGS[@]}; j++ )); do
+        AVGPERFLAG=0.0; COUNT=0
         for (( i=0; i<${#ALLFILES_COLLECT[@]}; i++ )); do
             stat_index=$((i * num_flags + j))
             if [ "$stat_index" -lt "$actual_stat_entries" ] && [[ "${STATS_DECOMPRESSTIME[$stat_index]}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
@@ -343,7 +335,7 @@ if [ "$1" == "--latex" ]; then
                 COUNT=$((COUNT + 1))
             fi
         done
-        if [ $COUNT -gt 0 ]; then AVGPERFLAG=$(printf "%.2f" $(echo "$AVGPERFLAG / $COUNT" | bc -l)); else AVGPERFLAG="N/A"; fi
+        if [ $COUNT -gt 0 ]; then AVGPERFLAG=$(printf "%.3f" $(echo "$AVGPERFLAG / $COUNT" | bc -l)); else AVGPERFLAG="N/A"; fi # Times with .3f
         if [ "$j" -eq "$((${#POSSIBLEFLAGS[@]}-1))" ]; then echo -n "$AVGPERFLAG s\\\\"; else echo -n "$AVGPERFLAG s& "; fi
     done
     echo ""; echo "\hline"
@@ -352,5 +344,58 @@ if [ "$1" == "--latex" ]; then
     echo "\label{tab:decompressiontime}"
     echo "\end{table}"
 fi
+
+# --- Overall Averages Calculation and Print ---
+total_comp_time_sum=0.0
+valid_comp_time_count=0
+total_decomp_time_sum=0.0
+valid_decomp_time_count=0
+total_bpc_sum=0.0
+valid_bpc_count=0
+
+# Use actual_stat_entries which is the total number of records in STATS arrays
+for ((k=0; k<actual_stat_entries; k++)); do
+    comp_time_val="${STATS_COMPRESSTIME[$k]}"
+    if [[ "$comp_time_val" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        total_comp_time_sum=$(echo "$total_comp_time_sum + $comp_time_val" | bc -l)
+        valid_comp_time_count=$((valid_comp_time_count + 1))
+    fi
+
+    decomp_time_val="${STATS_DECOMPRESSTIME[$k]}"
+    if [[ "$decomp_time_val" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        total_decomp_time_sum=$(echo "$total_decomp_time_sum + $decomp_time_val" | bc -l)
+        valid_decomp_time_count=$((valid_decomp_time_count + 1))
+    fi
+
+    bpc_val="${STATS_EFFICIENCY[$k]}"
+    if [[ "$bpc_val" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        total_bpc_sum=$(echo "$total_bpc_sum + $bpc_val" | bc -l)
+        valid_bpc_count=$((valid_bpc_count + 1))
+    fi
+done
+
+avg_comp_time_overall="N/A"
+if [ "$valid_comp_time_count" -gt 0 ]; then
+    avg_comp_time_overall=$(printf "%.3f" $(echo "$total_comp_time_sum / $valid_comp_time_count" | bc -l))
+fi
+
+avg_decomp_time_overall="N/A"
+if [ "$valid_decomp_time_count" -gt 0 ]; then
+    avg_decomp_time_overall=$(printf "%.3f" $(echo "$total_decomp_time_sum / $valid_decomp_time_count" | bc -l))
+fi
+
+avg_bpc_overall="N/A"
+if [ "$valid_bpc_count" -gt 0 ]; then
+    avg_bpc_overall=$(printf "%.2f" $(echo "$total_bpc_sum / $valid_bpc_count" | bc -l))
+fi
+
+echo ""
+echo "------------------------------------------"
+echo -e "${BLUE}Overall Averages Across All Configurations:${NC}"
+echo "Average Compression Time: $avg_comp_time_overall s"
+echo "Average Decompression Time: $avg_decomp_time_overall s"
+echo "Average bpc (bits per original byte): $avg_bpc_overall"
+echo "------------------------------------------"
+# End Overall Averages
 
 rm -f compressed.tmp decompressed.tmp
