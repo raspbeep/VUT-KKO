@@ -33,7 +33,7 @@
 #define DEFAULT_LENGTH_BITS 10
 
 // use MTF, if 0 use delta transform
-#define MTF 0
+#define MTF 1
 
 extern uint16_t SEARCH_BUF_SIZE;
 extern uint16_t OFFSET_BITS;
