@@ -1,6 +1,6 @@
 #!/bin/bash
 
-make
+# make
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -19,9 +19,9 @@ STATS_DECOMPRESSTIME=()
 
 TIMEFORMAT=%R
 
-echo "------------------------------------------"
-echo -e "${BLUE}Running tests for lz_codec${NC}"
-echo "------------------------------------------"
+# echo "------------------------------------------"
+# echo -e "${BLUE}Running tests for lz_codec${NC}"
+# echo "------------------------------------------"
 
 # Order: Baseline, Model, Adaptive, Adaptive+Model
 # This order is important for how data is stored and retrieved later for LaTeX tables.
@@ -69,7 +69,7 @@ do
     width_param=""
     if [[ "$width_from_filename_part" =~ ^[0-9]+$ ]]; then
         width_param="-w $width_from_filename_part"
-        echo "Detected width: $width_from_filename_part for $filename_only"
+        # echo "Detected width: $width_from_filename_part for $filename_only"
     else
         echo -e "${ORANGE}Warning: Could not extract numeric width from start of filename ${filename_only}. Proceeding without explicit -w flag unless lz_codec requires it.${NC}"
         # If lz_codec absolutely needs a width, this branch should error out or use a default.
@@ -83,7 +83,7 @@ do
         rm -f compressed.tmp decompressed.tmp
 
         flag_desc="${FLAG_NAMES[$idx]}"
-        echo "Running test for $file ${width_param} with flags: $flag_desc"
+        # echo "Running test for $file ${width_param} with flags: $flag_desc"
 
         ORIGINALSIZE=$(stat -c%s "$file")
 
@@ -100,7 +100,7 @@ do
 
         if [ $COMPRESS_EXIT_CODE -ne 0 ]; then
             echo -e "${RED}Test failed on ${ORANGE}execution of compression${NC}"
-            echo -e "${ORANGE}lz_codec -c output:\n$COMPRESSTIME_RAW${NC}"
+            # echo -e "${ORANGE}lz_codec -c output:\n$COMPRESSTIME_RAW${NC}"
             current_decomp_time="N/A" # Cannot decompress if compression failed
         else
             current_comp_time=$(echo "$COMPRESSTIME_RAW" | tail -n 1)
@@ -141,7 +141,7 @@ do
                     if [ $DIFF_EXIT_CODE -eq 0 ];then
                         if [ $COMPRESS_EXIT_CODE -eq 0 ] && [ $DECOMP_EXIT_CODE -eq 0 ]; then
                            TESTSPASSED=$((TESTSPASSED+1))
-                           echo -e "${GREEN}Test passed${NC}"
+                        #    echo -e "${GREEN}Test passed${NC}"
                         else
                            echo -e "${RED}Test failed (content diff OK, but a prior execution step failed)${NC}"
                         fi
@@ -160,16 +160,16 @@ do
         STATS_COMPRESSTIME+=("$current_comp_time")
         STATS_DECOMPRESSTIME+=("$current_decomp_time")
         
-        echo "------------------------------------------"
+        # echo "------------------------------------------"
     done
 done
 
-echo "Tests run: $TESTSRUN"
-echo "Tests passed: $TESTSPASSED"
-echo "------------------------------------------"
-echo "Compression and Decompression stats:"
-echo "------------------------------------------"
-printf "%-20s %-25s %-12s %-12s %-10s %-12s %-12s\n" "File" "Flags" "Orig. size" "Comp. size" "bpp" "Comp. Time" "Decomp. Time"
+# echo "Tests run: $TESTSRUN"
+# echo "Tests passed: $TESTSPASSED"
+# echo "------------------------------------------"
+# echo "Compression and Decompression stats:"
+# echo "------------------------------------------"
+# printf "%-20s %-25s %-12s %-12s %-10s %-12s %-12s\n" "File" "Flags" "Orig. size" "Comp. size" "bpp" "Comp. Time" "Decomp. Time"
 
 num_flags=${#POSSIBLEFLAGS[@]}
 actual_stat_entries=${#STATS_ORIGINALSIZE[@]}
@@ -422,12 +422,12 @@ if [ "$valid_bpc_count" -gt 0 ]; then
     avg_bpc_overall=$(printf "%.4f" $(echo "$total_bpc_sum / $valid_bpc_count" | bc -l))
 fi
 
-echo ""
-echo "------------------------------------------"
-echo -e "${BLUE}Overall Averages Across All Configurations (Console Output):${NC}"
-echo "Average Compression Time: $avg_comp_time_overall s"
-echo "Average Decompression Time: $avg_decomp_time_overall s"
-echo "Average bpp (bits per original byte): $avg_bpc_overall" # Changed label
-echo "------------------------------------------"
+# echo ""
+# echo "------------------------------------------"
+# echo -e "${BLUE}Overall Averages Across All Configurations (Console Output):${NC}"
+# echo "Average Compression Time: $avg_comp_time_overall s"
+# echo "Average Decompression Time: $avg_decomp_time_overall s"
+# echo "Average bpp (bits per original byte): $avg_bpc_overall" # Changed label
+# echo "------------------------------------------"
 
 rm -f compressed.tmp decompressed.tmp
