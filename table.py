@@ -182,3 +182,8 @@ print(f"Decompression time (s)         & {decompression_times_baseline:.3f} & {d
 print(f"Bits per pixel (bpp)       & {bpp_baseline:.3f} & {bpp_adaptive:.3f} & {bpp_model:.3f} & {bpp_adaptive_model:.3f} \\\\", end='')
 
 print(table_3_footer)
+
+average_bpp = (bpp_baseline + bpp_adaptive + bpp_model + bpp_adaptive_model) / 4
+average_comp_time = (compression_times_baseline + compression_times_adaptive + compression_times_model + compression_times_adaptive_model) / 4
+print(f"average bpp: {average_bpp }")
+print(f"average compression time: {average_comp_time }")

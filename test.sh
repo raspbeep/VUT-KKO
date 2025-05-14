@@ -97,6 +97,10 @@ do
         COMPRESSTIME_RAW=$( { time ./lz_codec -c -i "$file" -o compressed.tmp $width_param $flag; } 2>&1 )
         COMPRESS_EXIT_CODE=$?
 
+        # # # Print stdout of lz_codec
+        # echo -e "${BLUE}lz_codec -c output ${file}:${NC}"
+        # echo "$COMPRESSTIME_RAW"
+
 
         if [ $COMPRESS_EXIT_CODE -ne 0 ]; then
             echo -e "${RED}Test failed on ${ORANGE}execution of compression${NC}"

@@ -193,6 +193,7 @@ void Block::decode_using_strategy(SerializationStrategy strategy) {
   }
   auto& tokens = m_tokens[strategy];
   uint64_t position = 0;
+  m_decoded_data.reserve(m_width * m_height);
   for (size_t i = 0; i < tokens.size(); i++) {
     token_t token = tokens[i];
     if (token.coded) {

@@ -25,16 +25,18 @@
 #define DEBUG_PRINT_TOKENS 0
 #define DEBUG_PRINT_COLLISIONS 0
 
+#define BINARY_ONLY 1
+
 // minimum encode length
 #define MIN_CODED_LEN 3
 
 // top 10 10
 #define DEFAULT_BLOCK_SIZE 64
 #define DEFAULT_OFFSET_BITS 15
-#define DEFAULT_LENGTH_BITS 8
+#define DEFAULT_LENGTH_BITS 15
 
 // use MTF, if 0 use delta transform
-#define MTF 0
+#define MTF 1
 
 extern uint16_t SEARCH_BUF_SIZE;
 extern uint16_t OFFSET_BITS;

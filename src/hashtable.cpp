@@ -18,6 +18,8 @@
 #include <stdexcept>
 
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
+uint16_t max_additional_length = (1U << LENGTH_BITS) - 1;
+uint16_t optimisation_threshold = max_additional_length * 0.5;
 
 uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
                                   uint64_t position) {
@@ -31,9 +33,13 @@ uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
     shift_left += 8;
   }
 
-  // uimple Mixing (Knuth's multiplicative hash constant)
+  // // simple mixing (Knuth's multiplicative hash constant)
   k1 *= 0x9E3779B9;
   k1 ^= k1 >> 16;
+
+  // k1 ^= k1 >> 13;
+  // k1 *= 0x5bd1e995;
+  // k1 ^= k1 >> 15;
 
   // use bitwise AND to get index in the range of the hash table size
   return k1 & TABLE_MASK;
@@ -85,7 +91,6 @@ search_result HashTable::search(std::vector<uint8_t>& data,
   // traverse the linked list at the index of the hash table
   while (current != nullptr) {
     bool match = true;
-    // check the MIN_CODED_LEN bytes of data at the given position
     for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
       uint8_t cmp1 = data[current_pos + i];
       uint8_t cmp2 = data[current->position + i];
@@ -126,7 +131,11 @@ search_result HashTable::search(std::vector<uint8_t>& data,
       result.length = current_match_length;
       result.position = current->position;
       result.found = true;
+      if (result.length >= optimisation_threshold) {
+        break;
+      }
     }
+
     current = current->next;
   }
 
@@ -136,9 +145,6 @@ search_result HashTable::search(std::vector<uint8_t>& data,
 
 uint16_t HashTable::match_length(std::vector<uint8_t>& data,
                                  uint64_t current_pos, HashNode* current) {
-  uint16_t effective_length_bits = std::min<uint16_t>(LENGTH_BITS, 16);
-  uint16_t max_additional_length = (1U << effective_length_bits) - 1;
-
   uint16_t current_match_length = 0;
   for (uint16_t i = 0; i < max_additional_length; ++i) {
     auto cmp1_index = current_pos + MIN_CODED_LEN + i;
