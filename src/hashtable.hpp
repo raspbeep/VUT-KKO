@@ -20,7 +20,7 @@
 #include "common.hpp"
 
 // Default size for the hash table (power of 2 for efficient masking)
-#define HASH_TABLE_SIZE (1 << 12)
+#define HASH_TABLE_SIZE (256)
 
 /**
  * @struct search_result

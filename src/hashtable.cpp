@@ -19,7 +19,7 @@
 
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
 uint16_t max_additional_length = (1U << LENGTH_BITS) - 1;
-uint16_t optimisation_threshold = max_additional_length * 0.5;
+uint16_t optimisation_threshold = max_additional_length + 1;
 
 uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
                                   uint64_t position) {
@@ -36,10 +36,6 @@ uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
   // // simple mixing (Knuth's multiplicative hash constant)
   k1 *= 0x9E3779B9;
   k1 ^= k1 >> 16;
-
-  // k1 ^= k1 >> 13;
-  // k1 *= 0x5bd1e995;
-  // k1 ^= k1 >> 15;
 
   // use bitwise AND to get index in the range of the hash table size
   return k1 & TABLE_MASK;
@@ -127,13 +123,15 @@ search_result HashTable::search(std::vector<uint8_t>& data,
       continue;
     }
     uint16_t current_match_length = match_length(data, current_pos, current);
+    if (current_match_length == result.length)
+      break;
     if (current_match_length > result.length) {
       result.length = current_match_length;
       result.position = current->position;
       result.found = true;
-      if (result.length >= optimisation_threshold) {
-        break;
-      }
+      // if (result.length >= optimisation_threshold) {
+      //   break;
+      // }
     }
 
     current = current->next;

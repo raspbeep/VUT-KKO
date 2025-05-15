@@ -8,7 +8,7 @@ adaptive_flag=""
 model_flag=""
 run_all_flag=0 # Flag to indicate if --all was passed
 # example additional args to pass to lz_codec
-additional_params="--block_size=64"
+additional_params=""
 #--offset_bits=8 --length_bits=10"
 
 # --- Timing & Stats Variables ---
