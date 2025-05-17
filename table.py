@@ -160,6 +160,13 @@ print(table_3_footer)
 average_bpp = (bpp_baseline + bpp_adaptive + bpp_model + bpp_adaptive_model) / 4
 cumtime = sum(compression_times_baseline) + sum(compression_times_adaptive) + sum(compression_times_model) + sum(compression_times_adaptive_model)
 average_comp_time = (compression_times_baseline_avg + compression_times_adaptive_avg + compression_times_model_avg + compression_times_adaptive_model_avg) / 4
-print(f"average bpp: {average_bpp }")
-print(f"average compression time: {average_comp_time }")
-print(f"cumtime: {cumtime }")
+print(f"average bpp: {average_bpp:.3f}")
+print(f"average compression time: {average_comp_time:.3f}s")
+print(f"total time: {cumtime:.3f}s")
+
+
+total_original_size_B = sum([int(x.original_size) for x in results['baseline']]) + sum([int(x.original_size) for x in results['adaptive']]) + sum([int(x.original_size) for x in results['model']]) + sum([int(x.original_size) for x in results['adaptive_model']])
+total_original_size_MB = total_original_size_B / 1000_000
+thoughput = total_original_size_MB / cumtime
+print(f"thoughput: {thoughput:.3f}MB/s")
+

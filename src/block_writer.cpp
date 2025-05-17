@@ -76,7 +76,7 @@ void flush_bits_to_file(std::ofstream& file) {
 
 // function to write tokens to binary file with bit packing
 bool write_blocks_to_stream(const std::string& filename, uint32_t width,
-                            uint32_t height, uint16_t offset_length,
+                            uint32_t height, uint32_t offset_length,
                             uint16_t length_bits, bool adaptive, bool model,
                             const std::vector<Block>& blocks,
                             bool binary_only) {
