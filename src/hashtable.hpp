@@ -2,9 +2,9 @@
  * @file      hashtable.hpp
  *
  * @author    Pavel Kratochvil \n
- *            Faculty of Information Technology \n
- *            Brno University of Technology \n
- *            xkrato61@fit.vutbr.cz
+ * Faculty of Information Technology \n
+ * Brno University of Technology \n
+ * xkrato61@fit.vutbr.cz
  *
  * @brief     Header file for hash table implementation for LZSS compression
  *
@@ -14,13 +14,14 @@
 #ifndef HASHTABLE_HPP
 #define HASHTABLE_HPP
 
+#include <algorithm>  // Required for std::remove_if
 #include <cstdint>
 #include <vector>
 
 #include "common.hpp"
 
 // Default size for the hash table (power of 2 for efficient masking)
-#define HASH_TABLE_SIZE (256)
+#define HASH_TABLE_SIZE (1024)
 
 /**
  * @struct search_result
@@ -34,8 +35,8 @@ struct search_result {
 
 /**
  * @class HashTable
- * @brief Implements a hash table using separate chaining to store positions of
- * byte sequences for LZSS dictionary matching.
+ * @brief Implements a hash table using separate chaining (with vectors) to
+ * store positions of byte sequences for LZSS dictionary matching.
  */
 class HashTable {
   public:
@@ -46,15 +47,14 @@ class HashTable {
   HashTable(uint32_t size);
 
   /**
-   * @brief Destroys the HashTable, freeing allocated memory for nodes and the
-   * table itself.
+   * @brief Destroys the HashTable, freeing allocated memory if necessary.
    */
   ~HashTable();
 
   /**
    * @brief Inserts the position of a byte sequence into the hash table.
    * Hashes the sequence starting at 'position' and adds a node to the
-   * corresponding chain.
+   * corresponding bucket's vector.
    * @param data The input data vector.
    * @param position The starting position of the sequence to insert.
    */
@@ -80,20 +80,17 @@ class HashTable {
   struct search_result search(std::vector<uint8_t>& data, uint64_t current_pos);
 
   private:
-  // Forward declaration for the linked list node structure
-  struct HashNode;
-
   /**
    * @struct HashNode
-   * @brief Node structure for the linked list used in separate chaining.
+   * @brief Node structure for storing positions in the hash table buckets.
    */
   struct HashNode {
     uint64_t position;  // Position in the input stream
-    HashNode* next;     // Pointer to the next node in the chain
   };
 
-  HashNode** table;  // Array of pointers to HashNode (the hash table buckets)
-  uint32_t size;     // The size of the hash table array
+  std::vector<std::vector<HashNode>>
+      table;      // Each element is a vector of HashNodes for a bucket
+  uint32_t size;  // The size of the hash table (number of buckets)
   uint64_t collision_count;  // Counter for hash collisions (debug/analysis)
 
   private:
@@ -112,11 +109,12 @@ class HashTable {
    * Assumes the first MIN_CODED_LEN bytes already match.
    * @param data The input data vector.
    * @param current_pos The current position in the data vector.
-   * @param current The HashNode pointing to the potential match position.
+   * @param node_in_bucket The HashNode (from a bucket's vector) pointing to the
+   * potential match position.
    * @return The length of the match beyond the initial MIN_CODED_LEN bytes.
    */
   uint16_t match_length(std::vector<uint8_t>& data, uint64_t current_pos,
-                        HashNode* current);
+                        const HashNode& node_in_bucket);
 };
 
 #endif  // HASHTABLE_HPP

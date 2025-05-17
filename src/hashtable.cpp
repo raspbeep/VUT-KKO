@@ -2,9 +2,9 @@
  * @file      hashtable.cpp
  *
  * @author    Pavel Kratochvil \n
- *            Faculty of Information Technology \n
- *            Brno University of Technology \n
- *            xkrato61@fit.vutbr.cz
+ * Faculty of Information Technology \n
+ * Brno University of Technology \n
+ * xkrato61@fit.vutbr.cz
  *
  * @brief     Hash table implementation for LZSS compression
  *
@@ -13,13 +13,17 @@
 
 #include "hashtable.hpp"
 
+#include <algorithm>  // For std::remove_if, std::find_if
 #include <array>
 #include <iostream>
 #include <stdexcept>
 
+#ifndef MIN_CODED_LEN
+#define MIN_CODED_LEN 3
+#endif
+
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
 uint16_t max_additional_length = (1U << LENGTH_BITS) - 1;
-uint16_t optimisation_threshold = max_additional_length + 1;
 
 uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
                                   uint64_t position) {
@@ -33,65 +37,52 @@ uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
     shift_left += 8;
   }
 
-  // // simple mixing (Knuth's multiplicative hash constant)
   k1 *= 0x9E3779B9;
   k1 ^= k1 >> 16;
 
-  // use bitwise AND to get index in the range of the hash table size
   return k1 & TABLE_MASK;
 }
 
-// allocates a hash table of size 'size' and initializes all entries to nullptr
 HashTable::HashTable(uint32_t size) : size(size), collision_count(0) {
-  table = new HashNode*[size];
-  for (uint16_t i = 0; i < size; ++i) {
-    table[i] = nullptr;
-  }
+  table.resize(size);
 }
 
-// iterates over the hash table and deletes all LL nodes and the hash table
-// itself
 HashTable::~HashTable() {
 #if DEBUG_PRINT_COLLISIONS
   std::cout << "Collision count: " << collision_count << std::endl;
 #endif
-  for (uint16_t i = 0; i < size; ++i) {
-    HashNode* current = table[i];
-    while (current != nullptr) {
-      HashNode* temp = current;
-      current = current->next;
-      delete temp;
-    }
-  }
-  delete[] table;
 }
 
-// finds the index of the hash table for the given content and returns the
-// longes prefix in the input values
-// returns a struct with the following values:
-// - found: true if a match was found
-// - position: position in the input stream
-// - length: length of the match
-// if no match was found, returns a struct with found = false
 search_result HashTable::search(std::vector<uint8_t>& data,
                                 uint64_t current_pos) {
-  uint32_t key = hash_function(data, current_pos);  // hashes M bytes of data
+  uint32_t key = hash_function(data, current_pos);
 
-  HashNode* current = table[key];
+  const auto& bucket = table[key];
   struct search_result result{
-      false,  // found
-      0,      // position
-      0,      // length
+      false,
+      0,
+      0,
   };
 
-  // traverse the linked list at the index of the hash table
-  while (current != nullptr) {
+  for (const HashNode& node_in_bucket : bucket) {
     bool match = true;
+    // check if current_pos + MIN_CODED_LEN or node_in_bucket.position +
+    // MIN_CODED_LEN would go out of bounds
+    if (current_pos + MIN_CODED_LEN > data.size() ||
+        node_in_bucket.position + MIN_CODED_LEN > data.size()) {
+      continue;
+    }
+
     for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
+      // Ensure we don't read past the end of data for either string
+      if (current_pos + i >= data.size() ||
+          node_in_bucket.position + i >= data.size()) {
+        match = false;
+        break;
+      }
       uint8_t cmp1 = data[current_pos + i];
-      uint8_t cmp2 = data[current->position + i];
+      uint8_t cmp2 = data[node_in_bucket.position + i];
       if (__builtin_expect(cmp1 != cmp2, 0)) {
-        // hash collision! hashes matched but the data is different
         collision_count++;
 #if DEBUG_PRINT_COLLISIONS
         std::cout << "HashTable::search: hash collision!" << std::endl;
@@ -114,7 +105,6 @@ search_result HashTable::search(std::vector<uint8_t>& data,
         }
         std::cout << ")" << std::endl;
 #endif
-        current = current->next;
         match = false;
         break;
       }
@@ -122,51 +112,39 @@ search_result HashTable::search(std::vector<uint8_t>& data,
     if (__builtin_expect(!match, 0)) {
       continue;
     }
-    uint16_t current_match_length = match_length(data, current_pos, current);
-    if (current_match_length == result.length)
-      break;
+    uint16_t current_match_length =
+        match_length(data, current_pos, node_in_bucket);
     if (current_match_length > result.length) {
       result.length = current_match_length;
-      result.position = current->position;
+      result.position = node_in_bucket.position;
       result.found = true;
-      // if (result.length >= optimisation_threshold) {
-      //   break;
-      // }
     }
-
-    current = current->next;
   }
-
-  // if no match was found, return the default result (found = false)
   return result;
 }
 
 uint16_t HashTable::match_length(std::vector<uint8_t>& data,
-                                 uint64_t current_pos, HashNode* current) {
+                                 uint64_t current_pos,
+                                 const HashNode& node_in_bucket) {
   uint16_t current_match_length = 0;
   for (uint16_t i = 0; i < max_additional_length; ++i) {
     auto cmp1_index = current_pos + MIN_CODED_LEN + i;
-    auto cmp2_index = current->position + MIN_CODED_LEN + i;
+    auto cmp2_index = node_in_bucket.position + MIN_CODED_LEN + i;
 
     if (cmp1_index >= data.size() || cmp2_index >= data.size()) {
       break;
     }
 
-    // compare characters
     if (data[cmp1_index] == data[cmp2_index]) {
       current_match_length++;
     } else {
       break;
     }
   }
-
   return current_match_length;
 }
 
 void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
-  HashNode* new_node = new HashNode;
-  new_node->position = position;
-  // hash of the MIN_CODED_LEN bytes of data at the given position
   uint32_t index = hash_function(data, position);
 
 #if DEBUG_PRINT
@@ -184,26 +162,13 @@ void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
   std::cout << ")" << std::endl;
   std::cout << std::endl;
 #endif
-
-  HashNode* current = table[index];
-  if (current == nullptr) {
-    table[index] = new_node;
-    new_node->next = nullptr;
-  } else {
-    new_node->next = current;
-    table[index] = new_node;
-  }
+  table[index].insert(table[index].end(), {position});
 }
 
 void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
   uint32_t key = hash_function(data, position);
-  HashNode* current = table[key];
-  HashNode* prev = nullptr;
+  auto& bucket = table[key];
 
-  while (current != nullptr && current->position != position) {
-    prev = current;
-    current = current->next;
-  }
 #if DEBUG_PRINT
   std::cout << "HashTable::remove: " << std::endl;
   std::cout << "  position: " << position << std::endl;
@@ -220,21 +185,13 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
   std::cout << std::endl;
 #endif
 
-  if (__builtin_expect(current == nullptr, 0)) {
-    // this should never happen
+  auto it_to_remove = std::find_if(
+      bucket.end(), bucket.begin(),
+      [position](const HashNode& node) { return node.position == position; });
+
+  if (__builtin_expect(it_to_remove == bucket.end(), 0)) {
     throw std::runtime_error("Item not found in the hash table");
-    return;
   }
 
-  // we found the node matching the data
-  if (prev == nullptr) {
-    // delete the head and update the head pointer
-    table[key] = current->next;
-  } else {
-    // delete the current node and update the previous node's next pointer
-    prev->next = current->next;
-  }
-
-  // free the memory of the current node
-  delete current;
+  bucket.erase(it_to_remove);
 }
