@@ -31,14 +31,14 @@
 #define MIN_CODED_LEN 3
 
 #define DEFAULT_BLOCK_SIZE 512
-#define DEFAULT_OFFSET_BITS 15
-#define DEFAULT_LENGTH_BITS 8
+#define DEFAULT_OFFSET_BITS 16
+#define DEFAULT_LENGTH_BITS 9
 
 // use MTF, if 0 use delta transform
 #define MTF 1
 
 extern uint16_t SEARCH_BUF_SIZE;
-extern uint16_t OFFSET_BITS;
+extern uint32_t OFFSET_BITS;
 extern uint16_t LENGTH_BITS;
 extern uint16_t MAX_CODED_LEN;
 

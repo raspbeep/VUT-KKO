@@ -42,7 +42,7 @@
  * false otherwise (e.g., file not found, read error, corrupted data).
  */
 bool read_blocks_from_file(const std::string& filename, uint32_t& width,
-                           uint32_t& height, uint16_t& offset_bits,
+                           uint32_t& height, uint32_t& offset_bits,
                            uint16_t& length_bits, bool& adaptive, bool& model,
                            std::vector<Block>& blocks, bool& binary_only);
 

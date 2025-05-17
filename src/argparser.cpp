@@ -66,8 +66,8 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       .nargs(1)
       .metavar("BLOCK_SIZE");
   program.add_argument("--offset_bits")
-      .default_value<uint16_t>(DEFAULT_OFFSET_BITS)
-      .scan<'i', uint16_t>()
+      .default_value<uint32_t>(DEFAULT_OFFSET_BITS)
+      .scan<'i', uint32_t>()
       .store_into(OFFSET_BITS)
       .help("Number of bits used for offset in token")
       .nargs(1)
@@ -86,6 +86,12 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       throw std::runtime_error(
           "Error: Missing required argument '-c' or '-d' choosing compression "
           "or decompression respectively.");
+    }
+    if (program.is_used("-a") && !program.is_used("-w")) {
+      std::cout
+          << "Warning: Adaptive mode with no width specified. Using default "
+             "width of 1. Program may crash due to memory limits."
+          << std::endl;
     }
     if (decompress_mode && program.is_used("-w")) {
       std::cout << "Warning: Decompress mode is enabled, but width is "

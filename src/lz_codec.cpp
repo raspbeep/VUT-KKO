@@ -25,7 +25,7 @@
 uint16_t BLOCK_SIZE = DEFAULT_BLOCK_SIZE;
 
 // coded token parameters
-uint16_t OFFSET_BITS = DEFAULT_OFFSET_BITS;
+uint32_t OFFSET_BITS = DEFAULT_OFFSET_BITS;
 uint16_t LENGTH_BITS = DEFAULT_LENGTH_BITS;
 
 // max number expressible with the OFFSET_LENGTH bits
@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
 
   // asserts for checking valid values
   assert(BLOCK_SIZE > 0 && BLOCK_SIZE < (1 << 15));
-  assert(OFFSET_BITS > 0 && OFFSET_BITS < 16);
+  assert(OFFSET_BITS > 0 && OFFSET_BITS < 32);
   assert(LENGTH_BITS > 0 && LENGTH_BITS < 16);
   assert(MIN_CODED_LEN > 0);
 

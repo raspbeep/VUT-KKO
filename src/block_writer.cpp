@@ -126,7 +126,7 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
         // write token data
         if (token.coded) {
           // Coded token: write offset and length with specified bit lengths
-          if (offset_length > 16 || length_bits > 16) {
+          if (offset_length > 31 || length_bits > 16) {
             throw std::out_of_range(
                 "Offset/Length bit size too large for uint16_t.");
           }

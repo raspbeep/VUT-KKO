@@ -70,7 +70,7 @@ bool read_bits_from_file(std::ifstream& file, int numBits, uint32_t& value) {
 }
 
 bool read_blocks_from_file(const std::string& filename, uint32_t& width,
-                           uint32_t& height, uint16_t& offset_bits,
+                           uint32_t& height, uint32_t& offset_bits,
                            uint16_t& length_bits, bool& adaptive, bool& model,
                            std::vector<Block>& blocks, bool& binary_only) {
   blocks.clear();
@@ -164,8 +164,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
 
         uint32_t token_count = 0;
         read_bits_from_file(file, 32, token_count);
-        std::cout << "Block data size: " << token_count << std::endl;
-        uint64_t expected_decoded_bytes = token_count;
 
         if (strategy_val >= N_STRATEGIES) {
           std::cerr << "Error: Invalid strategy value read from file: "
@@ -187,12 +185,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
           // read coded flag (1 bit)
           if (!read_bit_from_file(file, flag_bit)) {
             // EOF hit unexpectedly before the block was fully decoded
-            std::cerr << "Warning: Unexpected EOF encountered while reading "
-                         "token flag for block ("
-                      << row << "," << col << ")."
-                      << " Expected " << expected_decoded_bytes
-                      << " bytes, got " << total_decoded_bytes_for_block << "."
-                      << std::endl;
             goto end_reading;  // exit loops
           }
           token.coded = flag_bit;
@@ -235,14 +227,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
 
           // if we successfully read all parts of the token, add it
           block.m_tokens[strategy].push_back(token);
-        }
-
-        // sanity check after loop
-        if (total_decoded_bytes_for_block != expected_decoded_bytes) {
-          std::cerr << "Warning: Block (" << row << "," << col
-                    << ") decoding finished, but byte count mismatch. Expected "
-                    << expected_decoded_bytes << ", got "
-                    << total_decoded_bytes_for_block << "." << std::endl;
         }
 
         blocks.push_back(std::move(block));
