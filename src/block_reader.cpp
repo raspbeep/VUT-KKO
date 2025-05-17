@@ -149,9 +149,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
               std::min<uint32_t>(BLOCK_SIZE, height - row * BLOCK_SIZE);
         }
 
-        uint64_t expected_decoded_bytes =
-            static_cast<uint64_t>(current_block_width) * current_block_height;
-
         // read the strategy from the file
         uint32_t strategy_val = DEFAULT;
         if (adaptive) {
@@ -164,6 +161,11 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
                 "error.");
           }
         }
+
+        uint32_t token_count = 0;
+        read_bits_from_file(file, 32, token_count);
+        std::cout << "Block data size: " << token_count << std::endl;
+        uint64_t expected_decoded_bytes = token_count;
 
         if (strategy_val >= N_STRATEGIES) {
           std::cerr << "Error: Invalid strategy value read from file: "
@@ -178,7 +180,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
 
         Block block(current_block_width, current_block_height, strategy);
         uint64_t total_decoded_bytes_for_block = 0;
-        while (total_decoded_bytes_for_block < expected_decoded_bytes) {
+        for (uint32_t token_it = 0; token_it < token_count; token_it++) {
           // read tokens for the block
           token_t token;
           bool flag_bit;
@@ -191,14 +193,14 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
                       << " Expected " << expected_decoded_bytes
                       << " bytes, got " << total_decoded_bytes_for_block << "."
                       << std::endl;
-            goto end_reading;  // Exit loops
+            goto end_reading;  // exit loops
           }
           token.coded = flag_bit;
 
           // read token data
           if (token.coded) {
             uint32_t temp_offset, temp_length;
-            // Coded token: read offset and length
+            // roded token: read offset and length
             if (!read_bits_from_file(file, offset_bits, temp_offset)) {
               std::cerr << "Warning: EOF encountered while reading offset for "
                            "coded token in block ("
@@ -255,7 +257,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
   }
 
 end_reading:
-
   // reset state after successful read or normal EOF break
   reset_bit_reader_state();
   file.close();

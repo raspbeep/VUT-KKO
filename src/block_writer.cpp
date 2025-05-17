@@ -115,6 +115,8 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
         // write strategy as 2 bits
         write_bits_to_file(file, block.m_picked_strategy, 2);
       }
+      uint32_t token_count = block.m_tokens[block.m_picked_strategy].size();
+      write_bits_to_file(file, token_count, 32);
 
       // write tokens with bit packing using functional helpers
       for (const auto& token : block.m_tokens[block.m_picked_strategy]) {

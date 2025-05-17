@@ -12,15 +12,16 @@
  * @date      12 April  2025 \n
  */
 
+#include "argparser.hpp"
+
 #include <argparse.hpp>
 #include <iostream>
 
-#include "argparser.hpp"
 #include "common.hpp"
 
-ArgumentParser::ArgumentParser(int argc, char* argv[])
+ArgumentParser::ArgumentParser(int argc, char *argv[])
     : program("lz_codec", "1.0", argparse::default_arguments::help) {
-  auto& group = program.add_mutually_exclusive_group();
+  auto &group = program.add_mutually_exclusive_group();
   group.add_argument("-c")
       .default_value(false)
       .implicit_value(true)
@@ -114,8 +115,12 @@ ArgumentParser::ArgumentParser(int argc, char* argv[])
       std::cout << "Using " << LENGTH_BITS << "b for length in token"
                 << std::endl;
     }
+    // if (program.is_used("-a")) {
+    //   std::cout << "adaptive" << std::endl;
+    //   BLOCK_SIZE = 64;
+    // }
     // print_args();
-  } catch (const std::runtime_error& err) {
+  } catch (const std::runtime_error &err) {
     std::cerr << err.what() << std::endl;
     std::cerr << program;
     exit(1);
@@ -153,6 +158,7 @@ void ArgumentParser::print_args() const {
   std::cout << "Model preprocessing: " << model << std::endl;
   std::cout << "Image width: " << image_width << std::endl;
 }
+
 
 // src/argparser.hpp
 /**
@@ -197,7 +203,7 @@ class ArgumentParser {
    * @param argc Argument count.
    * @param argv Argument vector.
    */
-  ArgumentParser(int argc, char* argv[]);
+  ArgumentParser(int argc, char *argv[]);
 
   /**
    * @brief Checks if compress mode is enabled.
@@ -249,6 +255,7 @@ class ArgumentParser {
 
 #endif  // ARGUMENT_PARSER_H
 
+
 // src/block.cpp
 /**
  * @file      block.cpp
@@ -263,6 +270,8 @@ class ArgumentParser {
  * @date      12 April  2025 \n
  */
 
+#include "block.hpp"
+
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -272,9 +281,73 @@ class ArgumentParser {
 #include <stdexcept>
 #include <vector>
 
-#include "block.hpp"
 #include "common.hpp"
 #include "hashtable.hpp"
+
+void rle(std::vector<uint8_t>& data) {
+  if (data.empty()) {
+    return;  // Handle empty input
+  }
+
+  std::vector<uint8_t> encoded_data;
+  encoded_data.reserve(data.size());  // Reasonable estimate for output size
+  size_t i = 0;
+
+  while (i < data.size()) {
+    // Count consecutive identical bytes
+    uint8_t current = data[i];
+    size_t count = 1;
+    while (i + count < data.size() && data[i + count] == current &&
+           count < 255 + 3) {
+      count++;
+    }
+
+    if (count < 3) {
+      // Output runs of 1 or 2 bytes as-is
+      for (size_t j = 0; j < count; j++) {
+        encoded_data.push_back(current);
+      }
+    } else {
+      // Output 3 bytes followed by count of additional repetitions
+      encoded_data.push_back(current);
+      encoded_data.push_back(current);
+      encoded_data.push_back(current);
+      encoded_data.push_back(static_cast<uint8_t>(count - 3));
+    }
+    i += count;
+  }
+
+  data.swap(encoded_data);
+}
+
+void reverse_rle(std::vector<uint8_t>& data) {
+  if (data.empty()) {
+    return;  // Handle empty input
+  }
+
+  std::vector<uint8_t> decoded_data;
+  decoded_data.reserve(data.size() * 2);  // Conservative estimate
+  size_t i = 0;
+
+  while (i < data.size()) {
+    if (i + 3 < data.size() && data[i] == data[i + 1] &&
+        data[i + 1] == data[i + 2]) {
+      // Found a run of 3 identical bytes followed by a count
+      uint8_t value = data[i];
+      uint8_t count = data[i + 3];
+      for (size_t j = 0; j < 3 + count; j++) {
+        decoded_data.push_back(value);
+      }
+      i += 4;
+    } else {
+      // Output single byte as-is
+      decoded_data.push_back(data[i]);
+      i++;
+    }
+  }
+
+  data.swap(decoded_data);
+}
 
 Block::Block(const std::vector<uint8_t> data, uint32_t width, uint32_t height)
     : m_width(width), m_height(height), m_picked_strategy(HORIZONTAL) {
@@ -491,236 +564,66 @@ void Block::decode_using_strategy(SerializationStrategy strategy) {
   }
   std::cout << std::endl;
 #endif
+  reverse_rle(m_decoded_data);
+  std::cout << "decoded data size: " << m_decoded_data.size() << std::endl;
 }
 
-// void Block::encode_using_strategy(SerializationStrategy strategy) {
-//   // if the strategy is not set, use the horizontal one
-//   if (strategy == DEFAULT) {
-//     strategy = HORIZONTAL;
-//   }
-
-//   auto hash_table = HashTable(HASH_TABLE_SIZE);
-//   // push the first two bytes unencoded since the dict is empty
-//   uint64_t position = 0;
-//   for (position = 0; position < MIN_CODED_LEN; position++) {
-//     insert_token(strategy, {.coded = false,
-//                             .data = {.value = m_data[strategy][position]}});
-//   }
-
-//   hash_table.insert(m_data[strategy], 0);
-//   uint64_t next_pos;
-//   uint64_t removed_until = 0;
-//   // iterate over all bytes of the input
-//   for (position = MIN_CODED_LEN, next_pos = MIN_CODED_LEN;
-//        position < m_data[strategy].size();) {
-//     // search for the longest prefix in the hash table
-//     search_result result = hash_table.search(m_data[strategy], position);
-//     next_pos = position + result.length;
-
-//     if (__builtin_expect(result.found, 1)) {
-//       next_pos += MIN_CODED_LEN;
-//       // found a match, push the token
-//       insert_token(
-//           strategy,
-//           {.coded = true,
-//            .data = {.offset = static_cast<uint16_t>(position -
-//            result.position),
-//                     .length = result.length}});
-//     } else {
-//       // no match found, push the byte unencoded
-//       insert_token(strategy, {.coded = false,
-//                               .data = {.value =
-//                               m_data[strategy][position]}});
-//       next_pos++;
-//     }
-
-//     // insert new prefixes into the hash table
-//     while (position < next_pos) {
-//       hash_table.insert(m_data[strategy], position - MIN_CODED_LEN + 1);
-//       position++;
-//     }
-
-//     // remove old entries from the hash table
-//     if (position > SEARCH_BUF_SIZE) {
-//       size_t remove_from = removed_until;
-//       size_t remove_to = position - SEARCH_BUF_SIZE - 1;
-//       for (size_t r = remove_from; r <= remove_to; r++) {
-//         hash_table.remove(m_data[strategy], r);
-//       }
-//       removed_until = remove_to + 1;
-//     }
-//   }
-// }
-
-const uint64_t N_ITERATIONS_TO_RESET_HASHTABLE = 1000;
-
 void Block::encode_using_strategy(SerializationStrategy strategy) {
+  // if the strategy is not set, use the horizontal one
   if (strategy == DEFAULT) {
     strategy = HORIZONTAL;
   }
 
   auto hash_table = HashTable(HASH_TABLE_SIZE);
+  // push the first two bytes unencoded since the dict is empty
   uint64_t position = 0;
-
-  // Handle cases where data size is less than MIN_CODED_LEN
-  // This part ensures we don't access out of bounds if m_data[strategy] is too
-  // small.
-  if (m_data[strategy].size() < MIN_CODED_LEN) {
-    for (position = 0; position < m_data[strategy].size(); ++position) {
-      insert_token(strategy, {.coded = false,
-                              .data = {.value = m_data[strategy][position]}});
-    }
-    return;  // Nothing more to encode
-  }
-
-  // Process the first MIN_CODED_LEN bytes as unencoded literals,
-  // as there's not enough history for them to be coded.
-  for (position = 0; position < MIN_CODED_LEN; ++position) {
+  for (position = 0; position < MIN_CODED_LEN; position++) {
     insert_token(strategy, {.coded = false,
                             .data = {.value = m_data[strategy][position]}});
   }
 
-  // Insert the first actual sequence into the hash table.
-  // This sequence starts at index 0 and has MIN_CODED_LEN bytes.
-  // This call was `hash_table.insert(m_data[strategy], 0);` in the original
-  // snippet. It primes the hash table with the very first sequence.
-  if (MIN_CODED_LEN > 0 && m_data[strategy].size() >= MIN_CODED_LEN) {
-    hash_table.insert(m_data[strategy], 0);
-  }
+  rle(m_data[strategy]);
 
+  hash_table.insert(m_data[strategy], 0);
+  uint64_t next_pos;
   uint64_t removed_until = 0;
-  uint64_t iterations_since_last_reset = 0;  // Counter for N iterations
-
-  // The main loop starts processing from 'position' (which is now
-  // MIN_CODED_LEN). 'position' is the start of the current lookahead buffer.
-  // The loop variable 'position' is advanced inside the loop based on match
-  // length.
-  for (/* position is already MIN_CODED_LEN */;
-       position < m_data[strategy].size();
-       /* position updated inside */) {
-    // Check if it's time to reset the HashTable
-    if (N_ITERATIONS_TO_RESET_HASHTABLE > 0 &&
-        iterations_since_last_reset >= N_ITERATIONS_TO_RESET_HASHTABLE) {
-      hash_table = HashTable(HASH_TABLE_SIZE);  // Re-initialize the HashTable
-      iterations_since_last_reset = 0;          // Reset the iteration counter
-
-      // When the HashTable is reset, 'removed_until' must also be reset.
-      // Setting it to 'position' ensures that the 'remove old entries' logic
-      // (which loops from 'removed_until' to 'position - SEARCH_BUF_SIZE - 1')
-      // will not attempt to remove entries from the new, empty HashTable
-      // that were never inserted into it. The loop condition
-      // 'r <= position - SEARCH_BUF_SIZE - 1' with 'r' starting at 'position'
-      // means the loop won't execute initially, which is safe.
-      removed_until = position;
-
-      // After reset, the hash table is empty. To maintain compression quality,
-      // it's beneficial to "re-prime" it with recent history that falls
-      // within the current sliding window.
-      // We insert sequences ending from `position - 1` down to `position -
-      // (SEARCH_BUF_SIZE - MIN_CODED_LEN +1)` (or as many as are available and
-      // fit the MIN_CODED_LEN requirement). This ensures that the search
-      // immediately after a reset can find recent patterns. Iterate backwards
-      // from the byte just before the current 'position'. The sequences
-      // inserted are those whose *last* byte is `idx_last_byte`. The start of
-      // such a sequence is `idx_last_byte - MIN_CODED_LEN + 1`.
-      uint64_t lookback_limit =
-          (position > SEARCH_BUF_SIZE) ? (position - SEARCH_BUF_SIZE) : 0;
-      for (uint64_t p_reprime = position;
-           p_reprime > lookback_limit && p_reprime >= MIN_CODED_LEN - 1;
-           --p_reprime) {
-        uint64_t seq_start_idx = p_reprime - (MIN_CODED_LEN - 1);
-        if (seq_start_idx + MIN_CODED_LEN <=
-            m_data[strategy].size()) {  // Ensure valid sequence
-          // Avoid re-inserting the very first sequence if it was just done
-          // before the loop
-          if (seq_start_idx == 0 && position == MIN_CODED_LEN)
-            continue;
-          hash_table.insert(m_data[strategy], seq_start_idx);
-        }
-        if (p_reprime == 0)
-          break;  // avoid underflow if p_reprime is unsigned
-      }
-    }
-    iterations_since_last_reset++;  // Increment per token processed
-
-    search_result result = hash_table.search(m_data[strategy], position);
-    uint64_t position_after_this_token;
+  // iterate over all bytes of the input
+  for (position = MIN_CODED_LEN, next_pos = MIN_CODED_LEN;
+       position < m_data[strategy].size();) {
+    // search for the longest prefix in the hash table
+    search_result result =
+        hash_table.search(m_data[strategy], position, m_width);
+    next_pos = position + result.length;
 
     if (__builtin_expect(result.found, 1)) {
+      next_pos += MIN_CODED_LEN;
+      // found a match, push the token
       insert_token(
           strategy,
           {.coded = true,
            .data = {.offset = static_cast<uint16_t>(position - result.position),
                     .length = result.length}});
-      position_after_this_token = position + result.length + MIN_CODED_LEN;
     } else {
+      // no match found, push the byte unencoded
       insert_token(strategy, {.coded = false,
                               .data = {.value = m_data[strategy][position]}});
-      position_after_this_token = position + 1;
+      next_pos++;
     }
 
-    // Insert new prefixes into the hash table.
-    // These are sequences whose *last* byte is at `p_insert_iter - 1` (if
-    // MIN_CODED_LEN > 0), so they start at `(p_insert_iter - 1) - MIN_CODED_LEN
-    // + 1`. The loop iterates from the current `position` up to
-    // `position_after_this_token`. For each byte
-    // `m_data[strategy][idx_last_byte]` that moves from lookahead to history,
-    // insert the sequence `m_data[strategy][idx_last_byte - MIN_CODED_LEN + 1
-    // ... idx_last_byte]`.
-    uint64_t current_byte_idx_for_insertion_loop = position;
-    while (current_byte_idx_for_insertion_loop < position_after_this_token) {
-      // Check if there are enough preceding characters to form a sequence of
-      // MIN_CODED_LEN
-      if (current_byte_idx_for_insertion_loop >= MIN_CODED_LEN - 1) {
-        uint64_t start_of_sequence_to_insert =
-            current_byte_idx_for_insertion_loop - (MIN_CODED_LEN - 1);
-        // Ensure this sequence is within data bounds before inserting
-        if (start_of_sequence_to_insert + MIN_CODED_LEN <=
-            m_data[strategy].size()) {
-          hash_table.insert(m_data[strategy], start_of_sequence_to_insert);
-        }
-      }
-      current_byte_idx_for_insertion_loop++;
+    // insert new prefixes into the hash table
+    while (position < next_pos) {
+      hash_table.insert(m_data[strategy], position - MIN_CODED_LEN + 1);
+      position++;
     }
-
-    // Update main loop position variable
-    position = position_after_this_token;
 
     // remove old entries from the hash table
-    // 'position' is now the start of the *next* lookahead buffer.
-    // We remove sequences that are too far in the past relative to this new
-    // 'position'. A sequence starting at 'r' is too old if 'position - r >
-    // SEARCH_BUF_SIZE'. So, r < position - SEARCH_BUF_SIZE. The oldest sequence
-    // to keep starts at 'position - SEARCH_BUF_SIZE'. Thus, we remove sequences
-    // starting from 'removed_until' up to 'position - SEARCH_BUF_SIZE - 1'.
-    if (position > SEARCH_BUF_SIZE) {  // Check if the lookahead has moved past
-                                       // the window size
-      size_t remove_to_idx = position - SEARCH_BUF_SIZE - 1;
-      // Ensure remove_to_idx is not less than removed_until to have a valid
-      // loop range. Also, removed_until should not cause r_idx to be negative
-      // if it's unsigned.
-      if (remove_to_idx >= removed_until &&
-          remove_to_idx <
-              m_data[strategy].size()) {  // Check remove_to_idx validity
-        for (size_t r_idx = removed_until; r_idx <= remove_to_idx; ++r_idx) {
-          // Ensure the sequence to remove is validly formed
-          if (r_idx + MIN_CODED_LEN <= m_data[strategy].size()) {
-            hash_table.remove(m_data[strategy], r_idx);
-          }
-        }
-        removed_until = remove_to_idx + 1;
-      } else if (position > removed_until + SEARCH_BUF_SIZE) {
-        // This case can occur if position jumped very far, past the current
-        // window from removed_until or if removed_until was set to 'position'
-        // during a reset. We need to update removed_until to the new valid
-        // start.
-        removed_until =
-            (position > SEARCH_BUF_SIZE) ? (position - SEARCH_BUF_SIZE) : 0;
+    if (position > SEARCH_BUF_SIZE) {
+      size_t remove_from = removed_until;
+      size_t remove_to = position - SEARCH_BUF_SIZE - 1;
+      for (size_t r = remove_from; r <= remove_to; r++) {
+        hash_table.remove(m_data[strategy], r);
       }
-    }
-    // If position is now at or beyond the data size, the loop will terminate.
-    if (position >= m_data[strategy].size()) {
-      break;
+      removed_until = remove_to + 1;
     }
   }
 }
@@ -785,6 +688,7 @@ void Block::print_tokens() {
     }
   }
 }
+
 
 // src/block.hpp
 /**
@@ -961,6 +865,7 @@ class Block {
 
 #endif  // LZ_BLOCK_HPP
 
+
 // src/block_reader.cpp
 /**
  * @file      block_reader.cpp
@@ -1089,6 +994,8 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
         throw std::runtime_error("Adaptive mode read invalid block size (0).");
       }
     }
+    uint32_t block_data_size;
+    read_bits_from_file(file, 32, block_data_size);
 
     uint16_t n_row_blocks = 1;
     uint16_t n_col_blocks = 1;
@@ -1113,8 +1020,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
               std::min<uint32_t>(BLOCK_SIZE, height - row * BLOCK_SIZE);
         }
 
-        uint64_t expected_decoded_bytes =
-            static_cast<uint64_t>(current_block_width) * current_block_height;
+        uint64_t expected_decoded_bytes = block_data_size;
 
         // read the strategy from the file
         uint32_t strategy_val = DEFAULT;
@@ -1302,6 +1208,7 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
 
 #endif  // BLOCK_READER_HPP
 
+
 // src/block_writer.cpp
 /**
  * @file      block_writer.cpp
@@ -1316,13 +1223,14 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
  * @date      12 April  2025 \n
  */
 
+#include "block_writer.hpp"
+
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <vector>
 
 #include "block.hpp"
-#include "block_writer.hpp"
 #include "token.hpp"
 
 uint8_t writer_buffer = 0;
@@ -1419,6 +1327,8 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
         // write strategy as 2 bits
         write_bits_to_file(file, block.m_picked_strategy, 2);
       }
+      uint32_t block_size = block.m_data[block.m_picked_strategy].size();
+      write_bits_to_file(file, block_size, 32);
 
       // write tokens with bit packing using functional helpers
       for (const auto& token : block.m_tokens[block.m_picked_strategy]) {
@@ -1501,6 +1411,7 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
 
 #endif  // BLOCK_WRITER_HPP
 
+
 // src/common.hpp
 /**
  * @file      common.hpp
@@ -1535,7 +1446,7 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
 #define MIN_CODED_LEN 3
 
 // top 10 10
-#define DEFAULT_BLOCK_SIZE 64
+#define DEFAULT_BLOCK_SIZE 512
 #define DEFAULT_OFFSET_BITS 15
 #define DEFAULT_LENGTH_BITS 15
 
@@ -1572,24 +1483,28 @@ using SerializationStrategy = std::size_t;
  * @file      hashtable.cpp
  *
  * @author    Pavel Kratochvil \n
- *            Faculty of Information Technology \n
- *            Brno University of Technology \n
- *            xkrato61@fit.vutbr.cz
+ * Faculty of Information Technology \n
+ * Brno University of Technology \n
+ * xkrato61@fit.vutbr.cz
  *
  * @brief     Hash table implementation for LZSS compression
  *
  * @date      12 April  2025 \n
  */
 
+#include "hashtable.hpp"
+
+#include <algorithm>  // For std::remove_if, std::find_if
 #include <array>
 #include <iostream>
 #include <stdexcept>
 
-#include "hashtable.hpp"
+#ifndef MIN_CODED_LEN
+#define MIN_CODED_LEN 3
+#endif
 
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
 uint16_t max_additional_length = (1U << LENGTH_BITS) - 1;
-uint16_t optimisation_threshold = max_additional_length * 0.5;
 
 uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
                                   uint64_t position) {
@@ -1603,69 +1518,57 @@ uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
     shift_left += 8;
   }
 
-  // // simple mixing (Knuth's multiplicative hash constant)
   k1 *= 0x9E3779B9;
   k1 ^= k1 >> 16;
 
-  // k1 ^= k1 >> 13;
-  // k1 *= 0x5bd1e995;
-  // k1 ^= k1 >> 15;
-
-  // use bitwise AND to get index in the range of the hash table size
   return k1 & TABLE_MASK;
 }
 
-// allocates a hash table of size 'size' and initializes all entries to nullptr
 HashTable::HashTable(uint32_t size) : size(size), collision_count(0) {
-  table = new HashNode*[size];
-  for (uint16_t i = 0; i < size; ++i) {
-    table[i] = nullptr;
-  }
+  table.resize(size);
 }
 
-// iterates over the hash table and deletes all LL nodes and the hash table
-// itself
 HashTable::~HashTable() {
 #if DEBUG_PRINT_COLLISIONS
   std::cout << "Collision count: " << collision_count << std::endl;
 #endif
-  for (uint16_t i = 0; i < size; ++i) {
-    HashNode* current = table[i];
-    while (current != nullptr) {
-      HashNode* temp = current;
-      current = current->next;
-      delete temp;
-    }
-  }
-  delete[] table;
 }
 
-// finds the index of the hash table for the given content and returns the
-// longes prefix in the input values
-// returns a struct with the following values:
-// - found: true if a match was found
-// - position: position in the input stream
-// - length: length of the match
-// if no match was found, returns a struct with found = false
 search_result HashTable::search(std::vector<uint8_t>& data,
-                                uint64_t current_pos) {
-  uint32_t key = hash_function(data, current_pos);  // hashes M bytes of data
+                                uint64_t current_pos, uint32_t width) {
+  uint32_t key = hash_function(data, current_pos);
 
-  HashNode* current = table[key];
+  const auto& bucket = table[key];
   struct search_result result{
-      false,  // found
-      0,      // position
-      0,      // length
+      false,
+      0,
+      0,
   };
 
-  // traverse the linked list at the index of the hash table
-  while (current != nullptr) {
+  for (const HashNode& node_in_bucket : bucket) {
+    // if (result.found &&
+    //     current_pos == result.position - width + MIN_CODED_LEN) {
+    //   // std::cout << "skipping";
+    //   break;
+    // }
     bool match = true;
+    // check if current_pos + MIN_CODED_LEN or node_in_bucket.position +
+    // MIN_CODED_LEN would go out of bounds
+    if (current_pos + MIN_CODED_LEN > data.size() ||
+        node_in_bucket.position + MIN_CODED_LEN > data.size()) {
+      continue;
+    }
+
     for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
+      // Ensure we don't read past the end of data for either string
+      if (current_pos + i >= data.size() ||
+          node_in_bucket.position + i >= data.size()) {
+        match = false;
+        break;
+      }
       uint8_t cmp1 = data[current_pos + i];
-      uint8_t cmp2 = data[current->position + i];
+      uint8_t cmp2 = data[node_in_bucket.position + i];
       if (__builtin_expect(cmp1 != cmp2, 0)) {
-        // hash collision! hashes matched but the data is different
         collision_count++;
 #if DEBUG_PRINT_COLLISIONS
         std::cout << "HashTable::search: hash collision!" << std::endl;
@@ -1688,7 +1591,6 @@ search_result HashTable::search(std::vector<uint8_t>& data,
         }
         std::cout << ")" << std::endl;
 #endif
-        current = current->next;
         match = false;
         break;
       }
@@ -1696,49 +1598,41 @@ search_result HashTable::search(std::vector<uint8_t>& data,
     if (__builtin_expect(!match, 0)) {
       continue;
     }
-    uint16_t current_match_length = match_length(data, current_pos, current);
+    uint16_t current_match_length =
+        match_length(data, current_pos, node_in_bucket);
     if (current_match_length > result.length) {
       result.length = current_match_length;
-      result.position = current->position;
+      result.position = node_in_bucket.position;
       result.found = true;
-      if (result.length >= optimisation_threshold) {
-        break;
-      }
     }
-
-    current = current->next;
+    // std::cout << current_pos << " " << result.position + MIN_CODED_LEN << " "
+    //           << current_match_length << std::endl;
   }
-
-  // if no match was found, return the default result (found = false)
   return result;
 }
 
 uint16_t HashTable::match_length(std::vector<uint8_t>& data,
-                                 uint64_t current_pos, HashNode* current) {
+                                 uint64_t current_pos,
+                                 const HashNode& node_in_bucket) {
   uint16_t current_match_length = 0;
   for (uint16_t i = 0; i < max_additional_length; ++i) {
     auto cmp1_index = current_pos + MIN_CODED_LEN + i;
-    auto cmp2_index = current->position + MIN_CODED_LEN + i;
+    auto cmp2_index = node_in_bucket.position + MIN_CODED_LEN + i;
 
     if (cmp1_index >= data.size() || cmp2_index >= data.size()) {
       break;
     }
 
-    // compare characters
     if (data[cmp1_index] == data[cmp2_index]) {
       current_match_length++;
     } else {
       break;
     }
   }
-
   return current_match_length;
 }
 
 void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
-  HashNode* new_node = new HashNode;
-  new_node->position = position;
-  // hash of the MIN_CODED_LEN bytes of data at the given position
   uint32_t index = hash_function(data, position);
 
 #if DEBUG_PRINT
@@ -1756,26 +1650,13 @@ void HashTable::insert(std::vector<uint8_t>& data, uint64_t position) {
   std::cout << ")" << std::endl;
   std::cout << std::endl;
 #endif
-
-  HashNode* current = table[index];
-  if (current == nullptr) {
-    table[index] = new_node;
-    new_node->next = nullptr;
-  } else {
-    new_node->next = current;
-    table[index] = new_node;
-  }
+  table[index].insert(table[index].end(), {position});
 }
 
 void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
   uint32_t key = hash_function(data, position);
-  HashNode* current = table[key];
-  HashNode* prev = nullptr;
+  auto& bucket = table[key];
 
-  while (current != nullptr && current->position != position) {
-    prev = current;
-    current = current->next;
-  }
 #if DEBUG_PRINT
   std::cout << "HashTable::remove: " << std::endl;
   std::cout << "  position: " << position << std::endl;
@@ -1792,23 +1673,15 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
   std::cout << std::endl;
 #endif
 
-  if (__builtin_expect(current == nullptr, 0)) {
-    // this should never happen
+  auto it_to_remove = std::find_if(
+      bucket.end(), bucket.begin(),
+      [position](const HashNode& node) { return node.position == position; });
+
+  if (__builtin_expect(it_to_remove == bucket.end(), 0)) {
     throw std::runtime_error("Item not found in the hash table");
-    return;
   }
 
-  // we found the node matching the data
-  if (prev == nullptr) {
-    // delete the head and update the head pointer
-    table[key] = current->next;
-  } else {
-    // delete the current node and update the previous node's next pointer
-    prev->next = current->next;
-  }
-
-  // free the memory of the current node
-  delete current;
+  bucket.erase(it_to_remove);
 }
 
 // src/hashtable.hpp
@@ -1816,9 +1689,9 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
  * @file      hashtable.hpp
  *
  * @author    Pavel Kratochvil \n
- *            Faculty of Information Technology \n
- *            Brno University of Technology \n
- *            xkrato61@fit.vutbr.cz
+ * Faculty of Information Technology \n
+ * Brno University of Technology \n
+ * xkrato61@fit.vutbr.cz
  *
  * @brief     Header file for hash table implementation for LZSS compression
  *
@@ -1828,13 +1701,14 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
 #ifndef HASHTABLE_HPP
 #define HASHTABLE_HPP
 
+#include <algorithm>  // Required for std::remove_if
 #include <cstdint>
 #include <vector>
 
 #include "common.hpp"
 
 // Default size for the hash table (power of 2 for efficient masking)
-#define HASH_TABLE_SIZE (1 << 12)
+#define HASH_TABLE_SIZE (1024)
 
 /**
  * @struct search_result
@@ -1848,8 +1722,8 @@ struct search_result {
 
 /**
  * @class HashTable
- * @brief Implements a hash table using separate chaining to store positions of
- * byte sequences for LZSS dictionary matching.
+ * @brief Implements a hash table using separate chaining (with vectors) to
+ * store positions of byte sequences for LZSS dictionary matching.
  */
 class HashTable {
   public:
@@ -1860,15 +1734,14 @@ class HashTable {
   HashTable(uint32_t size);
 
   /**
-   * @brief Destroys the HashTable, freeing allocated memory for nodes and the
-   * table itself.
+   * @brief Destroys the HashTable, freeing allocated memory if necessary.
    */
   ~HashTable();
 
   /**
    * @brief Inserts the position of a byte sequence into the hash table.
    * Hashes the sequence starting at 'position' and adds a node to the
-   * corresponding chain.
+   * corresponding bucket's vector.
    * @param data The input data vector.
    * @param position The starting position of the sequence to insert.
    */
@@ -1891,23 +1764,21 @@ class HashTable {
    * @return A search_result struct indicating if a match was found, its
    * position, and its length.
    */
-  struct search_result search(std::vector<uint8_t>& data, uint64_t current_pos);
+  struct search_result search(std::vector<uint8_t>& data, uint64_t current_pos,
+                              uint32_t width);
 
   private:
-  // Forward declaration for the linked list node structure
-  struct HashNode;
-
   /**
    * @struct HashNode
-   * @brief Node structure for the linked list used in separate chaining.
+   * @brief Node structure for storing positions in the hash table buckets.
    */
   struct HashNode {
     uint64_t position;  // Position in the input stream
-    HashNode* next;     // Pointer to the next node in the chain
   };
 
-  HashNode** table;  // Array of pointers to HashNode (the hash table buckets)
-  uint32_t size;     // The size of the hash table array
+  std::vector<std::vector<HashNode>>
+      table;      // Each element is a vector of HashNodes for a bucket
+  uint32_t size;  // The size of the hash table (number of buckets)
   uint64_t collision_count;  // Counter for hash collisions (debug/analysis)
 
   private:
@@ -1926,11 +1797,12 @@ class HashTable {
    * Assumes the first MIN_CODED_LEN bytes already match.
    * @param data The input data vector.
    * @param current_pos The current position in the data vector.
-   * @param current The HashNode pointing to the potential match position.
+   * @param node_in_bucket The HashNode (from a bucket's vector) pointing to the
+   * potential match position.
    * @return The length of the match beyond the initial MIN_CODED_LEN bytes.
    */
   uint16_t match_length(std::vector<uint8_t>& data, uint64_t current_pos,
-                        HashNode* current);
+                        const HashNode& node_in_bucket);
 };
 
 #endif  // HASHTABLE_HPP
@@ -1949,6 +1821,8 @@ class HashTable {
  * @date      12 April  2025 \n
  */
 
+#include "image.hpp"
+
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -1961,7 +1835,6 @@ class HashTable {
 #include "block_reader.hpp"
 #include "block_writer.hpp"
 #include "common.hpp"
-#include "image.hpp"
 // constructor for encoding
 Image::Image(std::string i_filename, std::string o_filename, uint32_t width,
              bool adaptive, bool model)
@@ -1974,6 +1847,8 @@ Image::Image(std::string i_filename, std::string o_filename, uint32_t width,
   // read the input file and store it in m_data vector
   read_enc_input_file();
   if (m_data.size() != static_cast<size_t>(m_width) * m_height) {
+    std::cout << m_width << " " << m_height << " " << m_data.size()
+              << std::endl;
     throw std::runtime_error(
         "Error: Data size does not match image dimensions.");
   }
@@ -2058,9 +1933,13 @@ void Image::read_enc_input_file() {
     m_data.clear();
     m_data.shrink_to_fit();
     m_data = compressed_data;
-
-    expected_size = (static_cast<uint64_t>(m_width) * m_height + 7) / 8;
-    m_width = (m_width + 7) / 8;
+    if (m_width == 1) {
+      m_height = (m_height + 7) / 8;
+      expected_size = m_height;
+    } else {
+      expected_size = (static_cast<uint64_t>(m_width) * m_height + 7) / 8;
+      m_width = (m_width + 7) / 8;
+    }
   }
 #endif
 
@@ -2440,6 +2319,7 @@ void Image::create_multiple_blocks() {
   }
 }
 
+
 // src/image.hpp
 /**
  * @file      image.hpp
@@ -2613,6 +2493,7 @@ class Image {
 };
 
 #endif  // IMAGE_HPP
+
 
 // src/lz_codec.cpp
 /**
@@ -2837,3 +2718,4 @@ typedef struct {
 } token_t;
 
 #endif  // TOKEN_HPP
+

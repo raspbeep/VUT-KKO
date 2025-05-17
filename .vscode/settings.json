@@ -96,6 +96,8 @@
     "filesystem": "cpp",
     "__nullptr": "cpp",
     "__functional_base": "cpp",
-    "__memory": "cpp"
+    "__memory": "cpp",
+    "text_encoding": "cpp",
+    "__string": "cpp"
   }
 }

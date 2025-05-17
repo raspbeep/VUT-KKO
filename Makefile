@@ -11,7 +11,7 @@ ZIP_NAME = xkrato61.zip
 
 BUILD_DIR = build
 
-.PHONY: all
+.PHONY: all run clean zip
 all: $(TARGET)
 	cp $(TARGET) ./$(TARGET_NAME)
 
@@ -26,12 +26,10 @@ $(TARGET): $(OBJS)
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
-.PHONY: run
 run: $(TARGET)
 	@echo "Running $(TARGET)..."
 	./$(TARGET) -c
 
-.PHONY: clean
 clean:
 	@echo "Cleaning up..."
 	rm -rf $(BUILD_DIR)
@@ -40,7 +38,6 @@ clean:
 	rm -f $(ZIP_NAME)
 	@echo "Cleanup complete."
 
-.PHONY: zip
 zip:
 	@echo "Creating zip archive $(ZIP_NAME)..."
 	zip -r $(ZIP_NAME) src include Makefile report.pdf readme.md

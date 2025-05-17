@@ -18,10 +18,6 @@
 #include <iostream>
 #include <stdexcept>
 
-#ifndef MIN_CODED_LEN
-#define MIN_CODED_LEN 3
-#endif
-
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
 uint16_t max_additional_length = (1U << LENGTH_BITS) - 1;
 
@@ -74,7 +70,7 @@ search_result HashTable::search(std::vector<uint8_t>& data,
     }
 
     for (uint16_t i = 0; i < MIN_CODED_LEN; ++i) {
-      // Ensure we don't read past the end of data for either string
+      // check the bounds read past the end of data for either string
       if (current_pos + i >= data.size() ||
           node_in_bucket.position + i >= data.size()) {
         match = false;

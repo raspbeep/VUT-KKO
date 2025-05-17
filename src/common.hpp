@@ -30,10 +30,9 @@
 // minimum encode length
 #define MIN_CODED_LEN 3
 
-// top 10 10
 #define DEFAULT_BLOCK_SIZE 512
-#define DEFAULT_OFFSET_BITS 14
-#define DEFAULT_LENGTH_BITS 9
+#define DEFAULT_OFFSET_BITS 15
+#define DEFAULT_LENGTH_BITS 8
 
 // use MTF, if 0 use delta transform
 #define MTF 1

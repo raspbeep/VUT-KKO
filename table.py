@@ -151,9 +151,9 @@ bpp_adaptive = statistics.mean([float(x.bpp.strip('s')) for x in results['adapti
 bpp_model = statistics.mean([float(x.bpp.strip('s')) for x in results['model']])
 bpp_adaptive_model = statistics.mean([float(x.bpp.strip('s')) for x in results['adaptive_model']])
 
-print(f"Compression time (s)           & {compression_times_baseline_avg:.3f} & {compression_times_adaptive_avg:.3f} & {compression_times_model_avg:.3f} & {compression_times_adaptive_model_avg:.3f} \\\\")
-print(f"Decompression time (s)         & {decompression_times_baseline_avg:.3f} & {decompression_times_adaptive_avg:.3f} & {decompression_times_model_avg:.3f} & {decompression_times_adaptive_model_avg:.3f} \\\\")
-print(f"Bits per pixel (bpp)       & {bpp_baseline:.3f} & {bpp_adaptive:.3f} & {bpp_model:.3f} & {bpp_adaptive_model:.3f} \\\\", end='')
+print(f"Compression time average (s)           & {compression_times_baseline_avg:.3f} & {compression_times_adaptive_avg:.3f} & {compression_times_model_avg:.3f} & {compression_times_adaptive_model_avg:.3f} \\\\")
+print(f"Decompression time average (s)         & {decompression_times_baseline_avg:.3f} & {decompression_times_adaptive_avg:.3f} & {decompression_times_model_avg:.3f} & {decompression_times_adaptive_model_avg:.3f} \\\\")
+print(f"Bits per pixel average (bpp)       & {bpp_baseline:.3f} & {bpp_adaptive:.3f} & {bpp_model:.3f} & {bpp_adaptive_model:.3f} \\\\", end='')
 
 print(table_3_footer)
 
