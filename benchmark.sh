@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-benchmark_dir="data"
+benchmark_dir="benchmark"
 # Use find to get all .raw files in the benchmark directory
 all_bench_files=$(find "$benchmark_dir" -name "*.raw" -print)
 adaptive_flag=""
@@ -193,9 +193,31 @@ for bench_filename in "${files_to_process[@]}"; do
     echo "------------------------------------------------------"
   fi
 
-  # Get original size
-  original_size=$(stat -c %s "$bench_filename" 2>/dev/null) || original_size=0
-  compressed_size=$(stat -c %s "tmp/tmp.enc" 2>/dev/null) || compressed_size=0
+  # Get original file size
+  if [[ "$(uname)" == "Darwin" ]]; then
+    # macOS
+    original_size=$(stat -f '%z' "$bench_filename" 2>/dev/null) || original_size=0
+  elif [[ "$(uname)" == "Linux" ]]; then
+    # Linux
+    original_size=$(stat -c '%s' "$bench_filename" 2>/dev/null) || original_size=0
+  else
+    # Fallback for other OSes or if stat fails unexpectedly
+    echo "Warning: Unsupported OS for optimized stat command. Using wc for original_size." >&2
+    original_size=$(wc -c < "$bench_filename" | awk '{print $1}' 2>/dev/null) || original_size=0
+  fi
+
+  # Get compressed file size
+  if [[ "$(uname)" == "Darwin" ]]; then
+    # macOS
+    compressed_size=$(stat -f '%z' "tmp/tmp.enc" 2>/dev/null) || compressed_size=0
+  elif [[ "$(uname)" == "Linux" ]]; then
+    # Linux
+    compressed_size=$(stat -c '%s' "tmp/tmp.enc" 2>/dev/null) || compressed_size=0
+  else
+    # Fallback for other OSes or if stat fails unexpectedly
+    echo "Warning: Unsupported OS for optimized stat command. Using wc for compressed_size." >&2
+    compressed_size=$(wc -c < "tmp/tmp.enc" | awk '{print $1}' 2>/dev/null) || compressed_size=0
+  fi
 
   echo "Original size: $original_size bytes"
   echo "Compressed size: $compressed_size bytes"

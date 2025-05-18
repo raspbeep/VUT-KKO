@@ -78,8 +78,7 @@ search_result HashTable::search(std::vector<uint8_t>& data,
       }
       uint8_t cmp1 = data[current_pos + i];
       uint8_t cmp2 = data[node_in_bucket.position + i];
-      if (__builtin_expect(cmp1 != cmp2, 0)) {
-        collision_count++;
+      if (cmp1 != cmp2) {
 #if DEBUG_PRINT_COLLISIONS
         std::cout << "HashTable::search: hash collision!" << std::endl;
         std::cout << "string1: ";
@@ -105,7 +104,7 @@ search_result HashTable::search(std::vector<uint8_t>& data,
         break;
       }
     }
-    if (__builtin_expect(!match, 0)) {
+    if (!match) {
       continue;
     }
     uint16_t current_match_length =
@@ -182,12 +181,10 @@ void HashTable::remove(std::vector<uint8_t>& data, uint64_t position) {
 #endif
 
   auto it_to_remove = std::find_if(
-      bucket.end(), bucket.begin(),
+      bucket.begin(), bucket.end(),
       [position](const HashNode& node) { return node.position == position; });
 
-  if (__builtin_expect(it_to_remove == bucket.end(), 0)) {
-    throw std::runtime_error("Item not found in the hash table");
+  if (it_to_remove != bucket.end()) {
+    bucket.erase(it_to_remove);
   }
-
-  bucket.erase(it_to_remove);
 }

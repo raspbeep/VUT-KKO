@@ -76,7 +76,7 @@ void Block::deserialize() {
     size_t dest_index_no_j = i * m_width;
     for (size_t j = 0; j < m_width; ++j) {
       size_t src_index = j * m_height + i;
-      if (__builtin_expect(src_index >= m_decoded_data.size(), 0)) {
+      if (src_index >= m_decoded_data.size()) {
         throw std::runtime_error(
             "Deserialize error: Source index out of bounds.");
       }
@@ -224,7 +224,7 @@ void Block::encode_using_strategy(SerializationStrategy strategy) {
     search_result result = hash_table.search(m_data[strategy], position);
     next_pos = position + result.length;
 
-    if (__builtin_expect(result.found, 1)) {
+    if (result.found) {
       next_pos += MIN_CODED_LEN;
       // found a match, push the token
       insert_token(

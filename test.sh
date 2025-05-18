@@ -85,7 +85,19 @@ do
         flag_desc="${FLAG_NAMES[$idx]}"
         # echo "Running test for $file ${width_param} with flags: $flag_desc"
 
-        ORIGINALSIZE=$(stat -c%s "$file")
+        if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS
+        ORIGINALSIZE=$(stat -f '%z' "$file" 2>/dev/null)
+        elif [[ "$(uname)" == "Linux" ]]; then
+        # Linux
+        ORIGINALSIZE=$(stat -c '%s' "$file" 2>/dev/null)
+        else
+        # Fallback
+        echo "Warning: Unsupported OS for optimized stat. Using wc for ORIGINALSIZE on $file." >&2
+        ORIGINALSIZE=$(wc -c < "$file" | awk '{print $1}' 2>/dev/null)
+        fi
+        # Ensure ORIGINALSIZE is 0 if the command failed or file doesn't exist
+        ORIGINALSIZE=${ORIGINALSIZE:-0}
 
         current_comp_size="N/A"
         current_bpp="N/A" # Changed from efficiency to bpp
@@ -109,7 +121,20 @@ do
         else
             current_comp_time=$(echo "$COMPRESSTIME_RAW" | tail -n 1)
             if [ -f "compressed.tmp" ]; then
-                current_comp_size=$(stat -c%s "compressed.tmp")
+                if [[ "$(uname)" == "Darwin" ]]; then
+                # macOS
+                current_comp_size=$(stat -f '%z' "compressed.tmp" 2>/dev/null)
+                elif [[ "$(uname)" == "Linux" ]]; then
+                # Linux
+                current_comp_size=$(stat -c '%s' "compressed.tmp" 2>/dev/null)
+                else
+                # Fallback
+                echo "Warning: Unsupported OS for optimized stat. Using wc for current_comp_size on compressed.tmp." >&2
+                current_comp_size=$(wc -c < "compressed.tmp" | awk '{print $1}' 2>/dev/null)
+                fi
+                # Ensure current_comp_size is 0 if the command failed or file doesn't exist
+                current_comp_size=${current_comp_size:-0}
+
                 if [[ "$ORIGINALSIZE" -ne 0 && "$current_comp_size" =~ ^[0-9]+$ ]]; then
                     # bpp: (compressed_size_in_bits / original_size_in_bytes) / components_per_pixel
                     # Assuming 1 component per pixel for .raw, or this needs adjustment
