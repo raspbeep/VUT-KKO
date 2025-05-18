@@ -21,8 +21,8 @@
 const uint32_t TABLE_MASK = HASH_TABLE_SIZE - 1;
 uint16_t max_additional_length = (1U << LENGTH_BITS) - 1;
 
-uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
-                                  uint64_t position) {
+inline uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
+                                         uint64_t position) {
   uint32_t k1 = 0;
   uint64_t end_position = position + MIN_CODED_LEN > data.size()
                               ? data.size()

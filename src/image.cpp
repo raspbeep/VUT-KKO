@@ -25,6 +25,8 @@
 #include "block_reader.hpp"
 #include "block_writer.hpp"
 #include "common.hpp"
+#include "transformations.hpp"
+
 // constructor for encoding
 Image::Image(std::string i_filename, std::string o_filename, uint32_t width,
              bool adaptive, bool model)
@@ -108,28 +110,7 @@ void Image::read_enc_input_file() {
   }
 #if BINARY_ONLY
   if (m_binary_only) {
-    // compress eights of bytes in m_data into one byte
-    std::vector<uint8_t> compressed_data;
-    compressed_data.reserve(m_data.size() / 8);
-    for (size_t i = 0; i < m_data.size(); i += 8) {
-      uint8_t packed_byte = 0;
-      for (size_t j = 0; j < 8 && i + j < m_data.size(); ++j) {
-        if (m_data[i + j] == 0xFF) {
-          packed_byte |= (1 << (7 - j));
-        }
-      }
-      compressed_data.push_back(packed_byte);
-    }
-    m_data.clear();
-    m_data.shrink_to_fit();
-    m_data = compressed_data;
-    if (m_width == 1) {
-      m_height = (m_height + 7) / 8;
-      expected_size = m_height;
-    } else {
-      expected_size = (static_cast<uint64_t>(m_width) * m_height + 7) / 8;
-      m_width = (m_width + 7) / 8;
-    }
+    binary_only_pack(m_data, m_width, m_height, expected_size);
   }
 #endif
 
@@ -145,22 +126,7 @@ void Image::read_enc_input_file() {
 void Image::write_dec_output_file() {
 #if BINARY_ONLY
   if (m_binary_only) {
-    std::vector<uint8_t> decompressed_data;
-    bool finished_unpacking = false;
-
-    for (uint8_t compressed_byte : m_data) {
-      if (finished_unpacking)
-        break;
-      for (int j = 7; j >= 0; --j) {
-        if ((compressed_byte >> j) & 1) {
-          decompressed_data.push_back(0xFF);
-        } else {
-          decompressed_data.push_back(0x00);
-        }
-      }
-    }
-
-    m_data = decompressed_data;
+    binary_only_unpack(m_data);
   }
 #endif
 

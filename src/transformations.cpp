@@ -1,8 +1,67 @@
+/**
+ * @file      transformations.cpp
+ *
+ * @author    Pavel Kratochvil \n
+ *            Faculty of Information Technology \n
+ *            Brno University of Technology \n
+ *            xkrato61@fit.vutbr.cz
+ *
+ * @brief     Source file for the transformation algorithms for LZSS
+ * preprocessing
+ *
+ * @date      12 April  2025 \n
+ */
+
 #include "transformations.hpp"
 
 #include <algorithm>
 #include <numeric>
 #include <stdexcept>
+
+void binary_only_pack(std::vector<uint8_t>& data, uint32_t& m_width,
+                      uint32_t& m_height, uint64_t& expected_size) {
+  // compress eights of bytes in m_data into one byte
+  std::vector<uint8_t> compressed_data;
+  compressed_data.reserve(data.size() / 8);
+  for (size_t i = 0; i < data.size(); i += 8) {
+    uint8_t packed_byte = 0;
+    for (size_t j = 0; j < 8 && i + j < data.size(); ++j) {
+      if (data[i + j] == 0xFF) {
+        packed_byte |= (1 << (7 - j));
+      }
+    }
+    compressed_data.push_back(packed_byte);
+  }
+  data.clear();
+  data.shrink_to_fit();
+  data = compressed_data;
+  if (m_width == 1) {
+    m_height = (m_height + 7) / 8;
+    expected_size = m_height;
+  } else {
+    expected_size = (static_cast<uint64_t>(m_width) * m_height + 7) / 8;
+    m_width = (m_width + 7) / 8;
+  }
+}
+
+void binary_only_unpack(std::vector<uint8_t>& data) {
+  std::vector<uint8_t> decompressed_data;
+  bool finished_unpacking = false;
+
+  for (uint8_t compressed_byte : data) {
+    if (finished_unpacking)
+      break;
+    for (int j = 7; j >= 0; --j) {
+      if ((compressed_byte >> j) & 1) {
+        decompressed_data.push_back(0xFF);
+      } else {
+        decompressed_data.push_back(0x00);
+      }
+    }
+  }
+
+  data = decompressed_data;
+}
 
 void rle(std::vector<uint8_t>& data) {
   if (data.empty()) {

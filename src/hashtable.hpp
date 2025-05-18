@@ -101,7 +101,7 @@ class HashTable {
    * @param position The starting position of the sequence to hash.
    * @return The calculated hash table index.
    */
-  uint32_t hash_function(std::vector<uint8_t>& data, uint64_t position);
+  inline uint32_t hash_function(std::vector<uint8_t>& data, uint64_t position);
 
   /**
    * @brief Calculates the length of the match between the sequence at
