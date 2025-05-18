@@ -120,10 +120,6 @@ ArgumentParser::ArgumentParser(int argc, char *argv[])
       std::cout << "Using " << LENGTH_BITS << "b for length in token"
                 << std::endl;
     }
-    // if (program.is_used("-a")) {
-    //   std::cout << "adaptive" << std::endl;
-    //   BLOCK_SIZE = 64;
-    // }
     // print_args();
   } catch (const std::runtime_error &err) {
     std::cerr << err.what() << std::endl;
