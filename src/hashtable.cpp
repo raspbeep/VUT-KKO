@@ -13,7 +13,7 @@
 
 #include "hashtable.hpp"
 
-#include <algorithm>  // For std::remove_if, std::find_if
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <stdexcept>

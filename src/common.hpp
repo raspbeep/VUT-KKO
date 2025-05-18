@@ -25,6 +25,8 @@
 #define DEBUG_PRINT_TOKENS 0
 #define DEBUG_PRINT_COLLISIONS 0
 
+// packs eight bytes into one if the data vectors contain only 0x00 or 0xFF
+// useful for purely black and white images
 #define BINARY_ONLY 1
 
 // minimum encode length

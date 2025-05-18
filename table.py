@@ -151,24 +151,29 @@ bpp_adaptive = statistics.mean([float(x.bpp.strip('s')) for x in results['adapti
 bpp_model = statistics.mean([float(x.bpp.strip('s')) for x in results['model']])
 bpp_adaptive_model = statistics.mean([float(x.bpp.strip('s')) for x in results['adaptive_model']])
 
-print(f"Compression time average (s)           & {compression_times_baseline_avg:.3f} & {compression_times_adaptive_avg:.3f} & {compression_times_model_avg:.3f} & {compression_times_adaptive_model_avg:.3f} \\\\")
-print(f"Decompression time average (s)         & {decompression_times_baseline_avg:.3f} & {decompression_times_adaptive_avg:.3f} & {decompression_times_model_avg:.3f} & {decompression_times_adaptive_model_avg:.3f} \\\\")
-print(f"Bits per pixel average (bpp)       & {bpp_baseline:.3f} & {bpp_adaptive:.3f} & {bpp_model:.3f} & {bpp_adaptive_model:.3f} \\\\", end='')
-
-print(table_3_footer)
-
 average_bpp = (bpp_baseline + bpp_adaptive + bpp_model + bpp_adaptive_model) / 4
 cumtime = sum(compression_times_baseline) + sum(compression_times_adaptive) + sum(compression_times_model) + sum(compression_times_adaptive_model)
 average_comp_time = (compression_times_baseline_avg + compression_times_adaptive_avg + compression_times_model_avg + compression_times_adaptive_model_avg) / 4
 average_decomp_time = (decompression_times_baseline_avg + decompression_times_adaptive_avg + decompression_times_model_avg + decompression_times_adaptive_model_avg) / 4
+total_original_size_B = sum([int(x.original_size) for x in results['baseline']]) + sum([int(x.original_size) for x in results['adaptive']]) + sum([int(x.original_size) for x in results['model']]) + sum([int(x.original_size) for x in results['adaptive_model']])
+total_original_size_MB = total_original_size_B / 1000_000
+thoughput = total_original_size_MB*4 / cumtime
+
+total_comp_time_baseline = sum(compression_times_baseline)
+total_comp_time_adaptive = sum(compression_times_adaptive)
+total_comp_time_model = sum(compression_times_model)
+total_comp_time_adaptive_model = sum(compression_times_adaptive_model)
+
+print(f"Compression time average (s)           & {compression_times_baseline_avg:.3f} & {compression_times_adaptive_avg:.3f} & {compression_times_model_avg:.3f} & {compression_times_adaptive_model_avg:.3f} \\\\")
+print(f"Decompression time average (s)         & {decompression_times_baseline_avg:.3f} & {decompression_times_adaptive_avg:.3f} & {decompression_times_model_avg:.3f} & {decompression_times_adaptive_model_avg:.3f} \\\\")
+print(f"Bits per pixel average (bpp)       & {bpp_baseline:.3f} & {bpp_adaptive:.3f} & {bpp_model:.3f} & {bpp_adaptive_model:.3f} \\\\")
+print(f"Thoughput (MB/s) & {total_original_size_MB /total_comp_time_baseline:.3f} & {total_original_size_MB / total_comp_time_adaptive:.3f} & {total_original_size_MB / total_comp_time_model:.3f} & {total_original_size_MB / total_comp_time_adaptive_model:.3f} \\\\", end='')
+print(table_3_footer)
+
 print(f"average bpp: {average_bpp:.3f}")
 print(f"average compression time: {average_comp_time:.3f}s")
 print(f"average decompression time: {average_decomp_time:.3f}s")
 print(f"total time: {cumtime:.3f}s")
 
-
-total_original_size_B = sum([int(x.original_size) for x in results['baseline']]) + sum([int(x.original_size) for x in results['adaptive']]) + sum([int(x.original_size) for x in results['model']]) + sum([int(x.original_size) for x in results['adaptive_model']])
-total_original_size_MB = total_original_size_B / 1000_000
-thoughput = total_original_size_MB / cumtime
 print(f"thoughput: {thoughput:.3f}MB/s")
 
