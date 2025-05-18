@@ -51,15 +51,15 @@ bool read_bit_from_file(std::ifstream& file, bool& bitValue) {
   return true;
 }
 
-bool read_bits_from_file(std::ifstream& file, int numBits, uint32_t& value) {
-  if (numBits < 0 || numBits > 32) {
+bool read_bits_from_file(std::ifstream& file, int num_bits, uint32_t& value) {
+  if (num_bits < 0 || num_bits > 32) {
     throw std::out_of_range("Number of bits must be between 0 and 32.");
   }
   if (reader_eof)
     return false;
 
   value = 0;
-  for (int i = 0; i < numBits; i++) {
+  for (int i = 0; i < num_bits; i++) {
     bool current_bit;
     if (!read_bit_from_file(file, current_bit)) {
       return false;
@@ -248,7 +248,7 @@ end_reading:
   return true;
 }
 
-void printTokens(const std::vector<token_t>& tokens) {
+void print_tokens(const std::vector<token_t>& tokens) {
   std::cout << "Total tokens: " << tokens.size() << std::endl;
   std::cout << "------------------------------" << std::endl;
 

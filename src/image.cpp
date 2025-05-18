@@ -39,8 +39,6 @@ Image::Image(std::string i_filename, std::string o_filename, uint32_t width,
   // read the input file and store it in m_data vector
   read_enc_input_file();
   if (m_data.size() != static_cast<size_t>(m_width) * m_height) {
-    std::cout << m_width << " " << m_height << " " << m_data.size()
-              << std::endl;
     throw std::runtime_error(
         "Error: Data size does not match image dimensions.");
   }
@@ -101,7 +99,6 @@ void Image::read_enc_input_file() {
 
   m_data.resize(expected_size);
   file.read(reinterpret_cast<char*>(m_data.data()), expected_size);
-  std::cout << expected_size << std::endl;
   for (auto& symbol : m_data) {
     if (symbol != 0 && symbol != 0xFF) {
       m_binary_only = false;

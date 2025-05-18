@@ -116,9 +116,7 @@ void Block::reverse_delta_transform() {
 void Block::mtf(SerializationStrategy strategy) {
   size_t strategy_index = static_cast<size_t>(strategy);
 
-  std::vector<uint8_t>& data_vec = m_data[strategy_index];
-
-  mtf_transform(data_vec);
+  mtf_transform(m_data[strategy_index]);
 }
 
 void Block::reverse_mtf() {
@@ -198,7 +196,6 @@ void Block::decode_using_strategy(SerializationStrategy strategy) {
   std::cout << std::endl;
 #endif
   reverse_rle(m_decoded_data);
-  std::cout << "decoded data size: " << m_decoded_data.size() << std::endl;
 }
 
 void Block::encode_using_strategy(SerializationStrategy strategy) {

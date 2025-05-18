@@ -47,11 +47,11 @@ void write_bit_to_file(std::ofstream& file, bool bit) {
   }
 }
 
-void write_bits_to_file(std::ofstream& file, uint32_t value, int numBits) {
-  if (numBits < 0 || numBits > 32) {
+void write_bits_to_file(std::ofstream& file, uint32_t value, int num_bits) {
+  if (num_bits < 0 || num_bits > 32) {
     throw std::out_of_range("Number of bits must be between 0 and 32.");
   }
-  for (int i = numBits - 1; i >= 0; i--) {
+  for (int i = num_bits - 1; i >= 0; i--) {
     write_bit_to_file(file, (value >> i) & 1);
   }
 }
@@ -102,8 +102,6 @@ bool write_blocks_to_stream(const std::string& filename, uint32_t width,
     write_bit_to_file(file, adaptive);
     write_bit_to_file(file, binary_only);
     if (adaptive) {
-      std::cout << "Writing block size of " << BLOCK_SIZE << " to file."
-                << std::endl;
       write_bits_to_file(file, BLOCK_SIZE, 16);
     }
 
