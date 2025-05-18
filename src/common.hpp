@@ -22,7 +22,7 @@
 #define DEBUG_DUMMY_SEQ 0
 #define DEBUG_PRINT 0
 #define DEBUG_COMP_ENC_UNENC 0
-#define DEBUG_PRINT_TOKENS 0
+#define DEBUG_PRINT_TOKENS 1
 #define DEBUG_PRINT_COLLISIONS 0
 
 #define BINARY_ONLY 1
@@ -32,7 +32,7 @@
 
 #define DEFAULT_BLOCK_SIZE 512
 #define DEFAULT_OFFSET_BITS 16
-#define DEFAULT_LENGTH_BITS 9
+#define DEFAULT_LENGTH_BITS 10
 
 // use MTF, if 0 use delta transform
 #define MTF 1

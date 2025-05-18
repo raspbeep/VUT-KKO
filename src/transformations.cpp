@@ -1,5 +1,9 @@
 #include "transformations.hpp"
 
+#include <algorithm>
+#include <numeric>
+#include <stdexcept>
+
 void rle(std::vector<uint8_t>& data) {
   if (data.empty()) {
     return;
@@ -58,4 +62,54 @@ void reverse_rle(std::vector<uint8_t>& data) {
   }
 
   data.swap(decoded_data);
+}
+
+void mtf_transform(std::vector<uint8_t>& data) {
+  std::vector<uint8_t> dictionary(256);
+  std::iota(dictionary.begin(), dictionary.end(), 0);
+
+  for (size_t i = 0; i < data.size(); ++i) {
+    uint8_t current_byte = data[i];
+
+    auto dict_it =
+        std::find(dictionary.begin(), dictionary.end(), current_byte);
+
+    if (dict_it == dictionary.end()) {
+      throw std::logic_error(
+          "MTF Error: Byte value not found in the 0-255 dictionary. "
+          "Indicates a potential data corruption.");
+    }
+
+    uint8_t index =
+        static_cast<uint8_t>(std::distance(dictionary.begin(), dict_it));
+
+    data[i] = index;
+
+    if (index != 0) {
+      std::rotate(dictionary.begin(), dict_it, dict_it + 1);
+    }
+  }
+}
+
+void reverse_mtf_transform(std::vector<uint8_t>& data) {
+  std::vector<uint8_t> dictionary(256);
+  std::iota(dictionary.begin(), dictionary.end(), 0);
+
+  for (size_t i = 0; i < data.size(); ++i) {
+    uint8_t current_index = data[i];
+
+    if (current_index >= dictionary.size()) {
+      throw std::runtime_error(
+          "MTF Decode Error: Invalid index encountered in encoded data.");
+    }
+
+    uint8_t decoded_byte = dictionary[current_index];
+
+    data[i] = decoded_byte;
+    if (current_index != 0) {
+      auto dict_it = dictionary.begin() + current_index;
+
+      std::rotate(dictionary.begin(), dict_it, dict_it + 1);
+    }
+  }
 }

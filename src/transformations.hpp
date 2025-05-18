@@ -12,4 +12,7 @@ void binary_only_pack(std::vector<uint8_t>& data, uint32_t& m_width,
 
 void binary_only_unpack(std::vector<uint8_t>& data);
 
+void mtf_transform(std::vector<uint8_t>& data);
+void reverse_mtf_transform(std::vector<uint8_t>& data);
+
 #endif

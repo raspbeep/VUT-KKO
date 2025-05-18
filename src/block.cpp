@@ -24,66 +24,7 @@
 
 #include "common.hpp"
 #include "hashtable.hpp"
-
-void rle(std::vector<uint8_t>& data) {
-  if (data.empty()) {
-    return;
-  }
-
-  std::vector<uint8_t> encoded_data;
-  encoded_data.reserve(data.size());
-  size_t i = 0;
-
-  while (i < data.size()) {
-    uint8_t current = data[i];
-    size_t count = 1;
-    while (i + count < data.size() && data[i + count] == current &&
-           count < 255 + 3) {
-      count++;
-    }
-
-    if (count < 3) {
-      for (size_t j = 0; j < count; j++) {
-        encoded_data.push_back(current);
-      }
-    } else {
-      encoded_data.push_back(current);
-      encoded_data.push_back(current);
-      encoded_data.push_back(current);
-      encoded_data.push_back(static_cast<uint8_t>(count - 3));
-    }
-    i += count;
-  }
-
-  data.swap(encoded_data);
-}
-
-void reverse_rle(std::vector<uint8_t>& data) {
-  if (data.empty()) {
-    return;
-  }
-
-  std::vector<uint8_t> decoded_data;
-  decoded_data.reserve(data.size() * 2);  // Conservative estimate
-  size_t i = 0;
-
-  while (i < data.size()) {
-    if (i + 3 < data.size() && data[i] == data[i + 1] &&
-        data[i + 1] == data[i + 2]) {
-      uint8_t value = data[i];
-      uint8_t count = data[i + 3];
-      for (size_t j = 0; j < static_cast<size_t>(3) + count; j++) {
-        decoded_data.push_back(value);
-      }
-      i += 4;
-    } else {
-      decoded_data.push_back(data[i]);
-      i++;
-    }
-  }
-
-  data.swap(decoded_data);
-}
+#include "transformations.hpp"
 
 Block::Block(const std::vector<uint8_t> data, uint32_t width, uint32_t height)
     : m_width(width), m_height(height), m_picked_strategy(HORIZONTAL) {
@@ -144,8 +85,8 @@ void Block::deserialize() {
           m_decoded_data[src_index];
     }
   }
-  // m_decoded_data.clear();
-  // m_decoded_data.shrink_to_fit();
+  m_decoded_data.clear();
+  m_decoded_data.shrink_to_fit();
 }
 
 void Block::delta_transform(SerializationStrategy strategy) {
@@ -177,55 +118,11 @@ void Block::mtf(SerializationStrategy strategy) {
 
   std::vector<uint8_t>& data_vec = m_data[strategy_index];
 
-  std::vector<uint8_t> dictionary(256);
-  std::iota(dictionary.begin(), dictionary.end(), 0);
-
-  for (size_t i = 0; i < data_vec.size(); ++i) {
-    uint8_t current_byte = data_vec[i];
-
-    auto dict_it =
-        std::find(dictionary.begin(), dictionary.end(), current_byte);
-
-    if (dict_it == dictionary.end()) {
-      throw std::logic_error(
-          "MTF Error: Byte value not found in the 0-255 dictionary. "
-          "Indicates a potential data corruption.");
-    }
-
-    uint8_t index =
-        static_cast<uint8_t>(std::distance(dictionary.begin(), dict_it));
-
-    data_vec[i] = index;
-
-    if (index != 0) {
-      std::rotate(dictionary.begin(), dict_it, dict_it + 1);
-    }
-  }
+  mtf_transform(data_vec);
 }
 
 void Block::reverse_mtf() {
-  std::vector<uint8_t>& encoded_data = m_decoded_data;
-
-  std::vector<uint8_t> dictionary(256);
-  std::iota(dictionary.begin(), dictionary.end(), 0);
-
-  for (size_t i = 0; i < encoded_data.size(); ++i) {
-    uint8_t current_index = encoded_data[i];
-
-    if (current_index >= dictionary.size()) {
-      throw std::runtime_error(
-          "MTF Decode Error: Invalid index encountered in encoded data.");
-    }
-
-    uint8_t decoded_byte = dictionary[current_index];
-
-    encoded_data[i] = decoded_byte;
-    if (current_index != 0) {
-      auto dict_it = dictionary.begin() + current_index;
-
-      std::rotate(dictionary.begin(), dict_it, dict_it + 1);
-    }
-  }
+  reverse_mtf_transform(m_decoded_data);
 }
 
 void Block::insert_token(SerializationStrategy strategy, token_t token) {
