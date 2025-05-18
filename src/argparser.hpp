@@ -31,8 +31,6 @@ class ArgumentParser {
   bool adaptive;
   bool model;
   uint32_t image_width;
-  uint16_t offset;
-  uint16_t length;
 
   public:
   /**

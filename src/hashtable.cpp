@@ -39,7 +39,7 @@ inline uint32_t HashTable::hash_function(std::vector<uint8_t>& data,
   return k1 & TABLE_MASK;
 }
 
-HashTable::HashTable(uint32_t size) : size(size), collision_count(0) {
+HashTable::HashTable(uint32_t size) {
   table.resize(size);
 }
 

@@ -177,7 +177,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
             static_cast<SerializationStrategy>(strategy_val);
 
         Block block(current_block_width, current_block_height, strategy);
-        uint64_t total_decoded_bytes_for_block = 0;
         for (uint32_t token_it = 0; token_it < token_count; token_it++) {
           // read tokens for the block
           token_t token;
@@ -208,9 +207,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
               goto end_reading;
             }
             token.data.length = static_cast<uint16_t>(temp_length);
-            // increment decoded bytes count
-            total_decoded_bytes_for_block +=
-                (token.data.length + MIN_CODED_LEN);
           } else {
             uint32_t temp_value;
             // uncoded token: read ASCII value (8 bits)
@@ -221,8 +217,6 @@ bool read_blocks_from_file(const std::string& filename, uint32_t& width,
               goto end_reading;
             }
             token.data.value = static_cast<uint8_t>(temp_value);
-            // increment decoded bytes count
-            total_decoded_bytes_for_block++;
           }
 
           // if we successfully read all parts of the token, add it

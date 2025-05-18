@@ -89,9 +89,7 @@ class HashTable {
   };
 
   std::vector<std::vector<HashNode>>
-      table;      // Each element is a vector of HashNodes for a bucket
-  uint32_t size;  // The size of the hash table (number of buckets)
-  uint64_t collision_count;  // Counter for hash collisions (debug/analysis)
+      table;  // Each element is a vector of HashNodes for a bucket
 
   private:
   /**

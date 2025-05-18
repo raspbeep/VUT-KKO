@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Default Settings ---
-benchmark_dir="benchmark"
+benchmark_dir="data"
 # Use find to get all .raw files in the benchmark directory
 all_bench_files=$(find "$benchmark_dir" -name "*.raw" -print)
 adaptive_flag=""
